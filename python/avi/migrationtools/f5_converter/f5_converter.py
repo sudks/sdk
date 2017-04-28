@@ -49,23 +49,8 @@ class F5Converter(AviConverter):
         # vs_filter.py args taken into classs variable
         self.vs_filter = args.vs_filter
 
-    def init_logger_path(self):
-        LOG.setLevel(logging.DEBUG)
-        formatter = '[%(asctime)s] %(levelname)s [%(funcName)s:%(lineno)d] %(message)s'
-        logging.basicConfig(filename=os.path.join(self.output_file_path, 'converter.log'),
-                            level=logging.DEBUG, format=formatter)
 
-    def print_pip_and_controller_version(self):
-        # Add logger and print avi netscaler converter version
-        LOG.info('AVI sdk version: %s Controller Version: %s'
-                 % (sdk_version, self.controller_version))
-        print 'AVI sdk version: %s Controller Version: %s' \
-              % (sdk_version, self.controller_version)
 
-    def upload_config_to_controller(self, avi_config):
-        avi_rest_lib.upload_config_to_controller(
-            avi_config, self.controller_ip, self.user, self.password,
-            self.tenant)
 
     def convert(self):
         if not os.path.exists(self.output_file_path):
