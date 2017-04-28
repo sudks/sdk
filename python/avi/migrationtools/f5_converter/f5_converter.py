@@ -66,19 +66,7 @@ class F5Converter(AviConverter):
         # Added not in use flag
         self.not_in_use = args.not_in_use
 
-    def print_pip_and_controller_version(self):
-        # Added input parameters to log file
-        LOG.info("Input parameters: %s" % ' '.join(sys.argv))
-        # Add logger and print avi netscaler converter version
-        LOG.info('AVI sdk version: %s Controller Version: %s'
-                 % (sdk_version, self.controller_version))
-        print 'AVI sdk version: %s Controller Version: %s' \
-              % (sdk_version, self.controller_version)
 
-    def upload_config_to_controller(self, avi_config):
-        avi_rest_lib.upload_config_to_controller(
-            avi_config, self.controller_ip, self.user, self.password,
-            self.tenant)
 
     def convert(self):
         if not os.path.exists(self.output_file_path):
