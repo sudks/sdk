@@ -5,8 +5,12 @@ import yaml
 import json
 import logging
 import os
+import avi.migrationtools
+
 
 LOG = logging.getLogger(__name__)
+sdk_version = getattr(avi.migrationtools, '__version__', None)
+
 
 class AviConverter(object):
     def init_logger_path(self):
@@ -33,7 +37,6 @@ class AviConverter(object):
             avi_config = filter_for_vs(avi_config, self.vs_filter)
         return avi_config
 
-
     def upload_config_to_controller(self, avi_config):
         avi_rest_lib.upload_config_to_controller(
             avi_config, self.controller_ip, self.user, self.password,
@@ -45,3 +48,16 @@ class AviConverter(object):
             json.dump(avi_config, text_file, indent=4)
         LOG.info('written avi config file ' +
                  output_dir + os.path.sep + "Output.json")
+
+    def init_logger_path(self):
+        LOG.setLevel(logging.DEBUG)
+        formatter = '[%(asctime)s] %(levelname)s [%(funcName)s:%(lineno)d] %(message)s'
+        logging.basicConfig(filename=os.path.join(self.output_file_path, 'converter.log'),
+                            level=logging.DEBUG, format=formatter)
+
+    def print_pip_and_controller_version(self):
+        # Add logger and print avi netscaler converter version
+        LOG.info('AVI sdk version: %s Controller Version: %s'
+                 % (sdk_version, self.controller_version))
+        print 'AVI sdk version: %s Controller Version: %s' \
+              % (sdk_version, self.controller_version)

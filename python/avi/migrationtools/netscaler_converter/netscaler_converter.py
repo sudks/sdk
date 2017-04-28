@@ -2,18 +2,13 @@
 import argparse
 import logging
 import os
-import json
-import yaml
+
 import avi.migrationtools
-import avi.migrationtools.netscaler_converter.netscaler_parser as ns_parser
 import avi.migrationtools.netscaler_converter.netscaler_config_converter \
     as ns_conf_converter
+import avi.migrationtools.netscaler_converter.netscaler_parser as ns_parser
 import avi.migrationtools.netscaler_converter.scp_util as scp_util
-
-
 from avi.migrationtools.avi_converter import AviConverter
-from avi.migrationtools.vs_filter import filter_for_vs
-from avi.migrationtools.config_patch import ConfigPatch
 
 LOG = logging.getLogger(__name__)
 sdk_version = getattr(avi.migrationtools, '__version__', None)
@@ -45,18 +40,7 @@ class NetscalerConverter(AviConverter):
         # vs_filter.py args taken into classs variable
         self.vs_filter = args.vs_filter
 
-    def init_logger_path(self):
-        LOG.setLevel(logging.DEBUG)
-        formatter = '[%(asctime)s] %(levelname)s [%(funcName)s:%(lineno)d] %(message)s'
-        logging.basicConfig(filename=os.path.join(self.output_file_path, 'converter.log'),
-                            level=logging.DEBUG, format=formatter)
 
-    def print_pip_and_controller_version(self):
-        # Add logger and print avi netscaler converter version
-        LOG.info('AVI sdk version: %s Controller Version: %s'
-                 % (sdk_version, self.controller_version))
-        print 'AVI sdk version: %s Controller Version: %s' \
-              % (sdk_version, self.controller_version)
 
     def convert(self):
         if not os.path.exists(self.output_file_path):
@@ -187,12 +171,9 @@ if __name__ == "__main__":
                                             'virtualservices')
 
     args = parser.parse_args()
-
+    netscaler_converter = NetscalerConverter(args)
     # print avi netscaler converter version
     if args.version:
-        print "SDK Version: %s\nController Version: %s" % \
-              (sdk_version, args.controller_version)
+        netscaler_converter.print_pip_and_controller_version()
         exit(0)
-
-    netscaler_converter = NetscalerConverter(args)
     netscaler_converter.convert()
