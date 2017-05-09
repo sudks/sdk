@@ -1,9 +1,12 @@
 import logging
 import avi.migrationtools.netscaler_converter.ns_constants as ns_constants
+
 from avi.migrationtools.netscaler_converter import ns_util
 from avi.migrationtools.netscaler_converter.gslb_service_converter \
     import GslbServiceConverter
 from avi.migrationtools.netscaler_converter.ns_constants import STATUS_SKIPPED
+from avi.migrationtools.netscaler_converter.gslb_monitor_converter \
+    import GslbHealthMonitorConverter
 
 LOG = logging.getLogger(__name__)
 
@@ -33,6 +36,7 @@ class GslbVsConverter(object):
         avi_config['GslbService'] = []
         gslb_vs_conf = ns_config.get(cmd, {})
         gslb_service_converter = GslbServiceConverter()
+        gslb_monitor_converter = GslbHealthMonitorConverter()
         for gslb_vs_name in gslb_vs_conf:
             gslb_vs = gslb_vs_conf[gslb_vs_name]
             full_cmd = ns_util.get_netscalar_full_command(cmd, gslb_vs)
@@ -47,9 +51,9 @@ class GslbVsConverter(object):
             lb_method = gslb_vs.get('lbMethod', 'ROUNDROBIN')
             consistent_hash_mask = gslb_vs.get('netmask', None)
             gslb_algorithm = self.convert_lb_method(lb_method)
-            groups, ttl, domains = gslb_service_converter.convert(
+            groups, ttl, domains, gslb_health_monitor_refs = gslb_service_converter.convert(
                 ns_config, gslb_vs_name, vip_cluster_map, gslb_algorithm,
-                consistent_hash_mask)
+                consistent_hash_mask, avi_config, gslb_monitor_converter)
             comment = gslb_vs.get('comment', None)
 
             gslb_service = {
@@ -64,13 +68,18 @@ class GslbVsConverter(object):
                 "groups": groups,
                 "num_dns_ip": 1,
                 "description": comment,
+                "health_monitor_refs": [],
                 "health_monitor_scope":
                     "GSLB_SERVICE_HEALTH_MONITOR_ALL_MEMBERS"
             }
 
+            if gslb_health_monitor_refs:
+                gslb_service['health_monitor_refs'].append(
+                    gslb_health_monitor_refs)
+
             conv_status = ns_util.get_conv_status(
                 gslb_vs, self.gslb_vserver_skip, self.gslb_vserver_na,
-                self.gslb_vserver_indirect)
+                self.gslb_vserver_indirect, avi_config)
             ns_util.add_conv_status(gslb_vs['line_no'], 'add gslb service',
                                     gslb_vs['attrs'][0], full_cmd, conv_status,
                                     gslb_service)

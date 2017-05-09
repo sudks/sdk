@@ -14,6 +14,7 @@ def get_vip_cluster_map(sites):
         session = ApiSession.get_session(
             site['ip_addresses'][0]['addr'], site['username'], site['password'])
         resp = session.get('virtualservice', api_version='17.1')
+        # resp = session.get('virtualservice', api_version='17.2.1')
         vs_list = json.loads(resp.text)['results']
         for vs in vs_list:
             vip_map.update(create_map_for_vs(vs, vip_map, site))
@@ -39,6 +40,8 @@ def convert(gslb_config_dict, controller_ip, user_name,
     session = ApiSession.get_session(controller_ip, user_name, password)
     resp = session.get('configuration/export?full_system=true')
     avi_config = json.loads(resp.text)
+    # json_data = open('/home/ramesh/Documents/converter/temp.json').read()
+    # avi_config = json.loads(json_data)
     sites = avi_config['Gslb'][0]['sites']
 
     vip_cluster_map = get_vip_cluster_map(sites)

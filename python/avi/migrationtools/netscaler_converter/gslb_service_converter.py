@@ -1,6 +1,9 @@
 import re
 import avi.migrationtools.netscaler_converter.ns_constants as ns_constants
+
 from avi.migrationtools.netscaler_converter import ns_util
+from avi.migrationtools.netscaler_converter.gslb_monitor_converter \
+    import GslbHealthMonitorConverter
 
 class GslbServiceConverter(object):
     def __init__(self):
@@ -13,19 +16,23 @@ class GslbServiceConverter(object):
         self.bind_gslb_skip = ns_constants.netscalar_command_status[
             'bind_gslb_skip']
 
-    def convert_service(
-            self, ns_service, vip_cluster_map, server_config, ratio):
+    def convert_service(self, ns_service, vip_cluster_map, server_config,
+                        ratio, avi_config, ns_monitor_config, gslb_monitor_converter):
         cmd = ns_util.get_netscalar_full_command('add gslb service',ns_service)
         matches = re.findall('[0-9]+.[[0-9]+.[0-9]+.[0-9]+',
                              ns_service['attrs'][1])
         if matches:
             member_ip = ns_service['attrs'][1]
+            port = ns_service['attrs'][3]
         else:
             server = server_config.get(ns_service['attrs'][1], {})
             member_ip = server['attrs'][1]
+            port = server['attrs'][3]
         state = (ns_service.get('state', 'ENABLED') == 'ENABLED')
+
+
         vs_details = vip_cluster_map.get(
-            '%s:%s' % (member_ip,  server['attrs'][3]), None)
+            '%s:%s' % (member_ip,  port), None)
         if vs_details:
             member = {
                 "cluster_uuid": vs_details['cluster_uuid'],
@@ -46,33 +53,48 @@ class GslbServiceConverter(object):
                 "ratio": ratio,
                 "enabled": state
             }
-
+        gslb_monitor_ref = None
+        if ns_service.get('healthmonitor', None):
+            monitor_config = ns_monitor_config.get(
+                ns_service.get('healthmonitor', {}))
+            gslb_monitor = gslb_monitor_converter.convert(monitor_config)
+            if gslb_monitor:
+                avi_config['GslbHealthMonitor'].append(gslb_monitor)
+                gslb_monitor_ref = gslb_monitor['name']
         conv_status = ns_util.get_conv_status(
             ns_service, self.gslb_service_skip, self.gslb_service_na,
             self.gslb_service_indirect)
         ns_util.add_conv_status(ns_service['line_no'], 'add gslb service',
                                 ns_service['attrs'][0], cmd, conv_status,
                                 member)
-        return member
+        return member, gslb_monitor_ref
+
 
     def convert(self, ns_config, gslb_vs_name, vip_cluster_map, gslb_algorithm,
-                consistent_hash_mask):
+                consistent_hash_mask, avi_config, gslb_monitor_converter):
         print "in service conversion"
         ns_groups = ns_config.get('bind gslb vserver', {})
         gslb_vs_conf = ns_config.get('add gslb vserver', {})
         service_config = ns_config.get('add gslb service', {})
         server_config = ns_config.get('add server')
+        ns_monitor_config = ns_config.get('add lb monitor', {})
         vs_bindings = ns_groups.get(gslb_vs_name, {})
         domains=list()
         ttls = list()
         group_dict = dict()
+        gslb_health_monitor_refs = []
         for binding in vs_bindings:
             cmd = ns_util.get_netscalar_full_command(
                 'bind gslb vserver', binding)
             if 'serviceName' in binding:
-                member = self.convert_service(
+                member, health_monitor_ref = self.convert_service(
                     service_config[binding['serviceName']], vip_cluster_map,
-                    server_config, binding.get('weight', 1))
+                    server_config, binding.get('weight', 1), avi_config,
+                    ns_monitor_config, gslb_monitor_converter)
+                if health_monitor_ref:
+                    gslb_health_monitor_refs.append(
+                        '/api/gslbhealthmonitor/?tenant=admin&name=%s' %
+                        health_monitor_ref)
                 priority = binding.get('priority', 1)
                 group = group_dict.get(priority, None)
                 if not group:
@@ -106,4 +128,4 @@ class GslbServiceConverter(object):
             groups.append(group_dict[key])
         ttl = max(ttls, key=ttls.count)
 
-        return groups, ttl, domains
+        return groups, ttl, domains, gslb_health_monitor_refs
