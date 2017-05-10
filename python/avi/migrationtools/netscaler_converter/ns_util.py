@@ -5,7 +5,7 @@ import copy
 import re
 import random
 import urlparse
-import json
+import ast
 import pandas
 import avi.migrationtools.netscaler_converter.ns_constants as ns_constants
 
@@ -864,10 +864,7 @@ def format_string_to_json(avi_string):
     :return: Return converted string
     """
     avi_string = avi_string.split('__/__')[0]
-    repls = ('True', 'true'), ('False', 'false'), ("\"", ""), ("'", "\""), \
-            ("None", "null"),('u"','"')
-    avi_string = reduce(lambda a, kv: a.replace(*kv), repls, avi_string)
-    return json.loads(avi_string)
+    return ast.literal_eval(avi_string)
 
 
 def get_csv_object_list(csv_writer_dict_list, command_list):
