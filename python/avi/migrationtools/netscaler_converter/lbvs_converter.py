@@ -371,6 +371,13 @@ class LbvsConverter(object):
                         vs_obj, redirect_url, avi_config, self.tenant_name,
                         self.tenant_ref)
                 if redirect_url:
+                    ns_util.create_update_vsvip(
+                        ip_addr, avi_config['VsVip'], self.tenant_ref,
+                        self.cloud_ref)
+                    updated_vsvip_ref = ns_util.get_object_ref(
+                        ip_addr + '-vsvip', 'vsvip', self.tenant_name,
+                        self.cloud_name)
+                    vs_obj['vsvip_ref'] = updated_vsvip_ref
                     avi_config['VirtualService'].append(vs_obj)
                     tmp_avi_config['VirtualService'].append(vs_obj)
                     # Marked redirect url as status indirect
