@@ -445,9 +445,14 @@ def is_shared_same_vip(vs, cs_vs_list, avi_config, tenant_name, cloud_name,
                        tenant_ref, cloud_ref):
     """
     This function check for vs sharing same vip
-    :param vs: name of vs
-    :param avi_config:  avi config dict
-    :return: Bool value
+    :param vs: Name of vs
+    :param cs_vs_list: List of vs
+    :param avi_config: avi config dict
+    :param tenant_name: Name of tenant
+    :param cloud_name: Name of cloud
+    :param tenant_ref: Reference of tenant
+    :param cloud_ref: Reference of cloud
+    :return: None
     """
 
     # Get the list of vs which shared the same vip
@@ -463,6 +468,7 @@ def is_shared_same_vip(vs, cs_vs_list, avi_config, tenant_name, cloud_name,
         updated_vsvip_ref = get_object_ref(vsvip + '-vsvip', 'vsvip', tenant_name,
                                            cloud_name)
         vs['vsvip_ref'] = updated_vsvip_ref
+
 
 def clone_http_policy_set(policy, prefix, avi_config, tenant_name, cloud_name):
     """
@@ -1375,8 +1381,19 @@ def update_vs_complexity_level(vs_csv_row, virtual_service):
 
 
 def create_update_vsvip(vip, vsvip_config, tenant_ref, cloud_ref):
+    """
+    This functions defines that create or update VSVIP object.
+    :param vip: vip of VS
+    :param vsvip_config: List of vs object
+    :param tenant_ref: tenant reference
+    :param cloud_ref: cloud reference
+    :return: None
+    """
+
+    # Get the exsting vsvip object list if present
     vsvip = [vip_obj for vip_obj in vsvip_config
              if vip_obj['name'] == vip +'-vsvip']
+    # If VSVIP object not present then create new VSVIP object.
     if not vsvip:
         vsvip_object = {
             "name": vip + '-vsvip',
