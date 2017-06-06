@@ -37,6 +37,7 @@ def setUpModule():
             login_info.get("password", "avi123"),
             tenant=login_info.get("tenant", "admin"),
             tenant_uuid=login_info.get("tenant_uuid", None),
+            api_version=login_info.get("api_version", "17.1"),
             verify=False)
 
 
@@ -46,10 +47,11 @@ def create_sessions(args):
     user = login_info.get("username", "admin")
     cip = login_info.get("controller_ip")
     key = cip + ":" + user
-    for _ in xrange(num_sessions):
-        api = ApiSession(login_info["controller_ip"],
-                         login_info.get("username", "admin"),
-                         login_info.get("password", "avi123"))
+    for _ in range(num_sessions):
+        api = ApiSession(
+            login_info["controller_ip"], login_info.get("username", "admin"),
+            login_info.get("password", "avi123"), api_version=login_info.get(
+                "api_version", "17.1"))
     return 1 if key in ApiSession.sessionDict else 0
 
 
@@ -62,17 +64,24 @@ class Test(unittest.TestCase):
     def test_basic_vs(self):
         basic_vs_cfg = gSAMPLE_CONFIG["BasicVS"]
         vs_obj = basic_vs_cfg["vs_obj"]
-        resp = api.post('pool', data=json.dumps(basic_vs_cfg["pool_obj"]))
+        resp = api.post('pool', data=json.dumps(basic_vs_cfg["pool_obj"]),
+                        api_version='17.1.1')
+        print resp.status_code, resp.text
         assert resp.status_code in (200, 201)
         vs_obj["pool_ref"] = api.get_obj_ref(resp.json())
-        resp = api.post('virtualservice', data=json.dumps(vs_obj))
+        resp = api.post('virtualservice', data=json.dumps(vs_obj),
+                        api_version='17.1.1')
+        print resp.status_code, resp.text
         assert resp.status_code in (200, 201)
         pool_name = gSAMPLE_CONFIG["BasicVS"]["pool_obj"]["name"]
-        resp = api.get('virtualservice', tenant='admin')
+        resp = api.get('virtualservice', tenant='admin',
+                        api_version='17.1.1')
         assert resp.json()['count'] >= 1
-        resp = api.delete_by_name('virtualservice', vs_obj['name'])
+        resp = api.delete_by_name('virtualservice', vs_obj['name'],
+                        api_version='17.1.1')
         assert resp.status_code in (200, 204)
-        resp = api.delete_by_name("pool", pool_name)
+        resp = api.delete_by_name("pool", pool_name,
+                        api_version='17.1.1')
         assert resp.status_code in (200, 204)
 
     def test_reuse_server_session(self):
@@ -84,12 +93,13 @@ class Test(unittest.TestCase):
         api2 = ApiSession.get_session(api.controller_ip, api.username,
                                       api.password, tenant=api.tenant,
                                       tenant_uuid=api.tenant_uuid,
+                                      api_version=api.api_version,
                                       verify=False)
         assert api == api2
 
     def test_ssl_vs(self):
         papi = ApiSession(api.controller_ip, api.username, api.password,
-                          verify=False)
+                          verify=False, api_version=api.api_version)
         ssl_vs_cfg = gSAMPLE_CONFIG["SSL-VS"]
         vs_obj = ssl_vs_cfg["vs_obj"]
         pool_name = gSAMPLE_CONFIG["SSL-VS"]["pool_obj"]["name"]
@@ -99,6 +109,7 @@ class Test(unittest.TestCase):
         api_utils = ApiUtils(papi)
         try:
             resp = api_utils.import_ssl_certificate("ssl-vs-kc", key, cert)
+            print resp.text
             ssl_kc = resp.json()
         except:
             ssl_kc = api.get_object_by_name('sslkeyandcertificate',
@@ -107,6 +118,7 @@ class Test(unittest.TestCase):
         vs_obj["pool_ref"] = pool_ref
         vs_obj["ssl_key_and_certificate_refs"] = ssl_key_and_cert_ref
         resp = papi.post('virtualservice', data=json.dumps(vs_obj))
+        print resp, resp.text
         assert resp.status_code < 300
         resp = papi.delete_by_name('virtualservice', vs_obj['name'])
         assert resp.status_code in (200, 204)
@@ -119,8 +131,9 @@ class Test(unittest.TestCase):
         login_info = gSAMPLE_CONFIG["User2"]
         old_password = login_info["password"]
         api2 = ApiSession.get_session(
-                api.controller_ip, login_info["username"], old_password,
-                tenant=api.tenant, tenant_uuid=api.tenant_uuid, verify=False)
+            api.controller_ip, login_info["username"], old_password,
+            tenant=api.tenant, tenant_uuid=api.tenant_uuid,
+            api_version=api.api_version, verify=False)
         user_obj = api.get_object_by_name("user", login_info["name"])
         new_password = "avi1234"
         if login_info["password"] == new_password:
@@ -238,7 +251,7 @@ class Test(unittest.TestCase):
         p.join()
         p = Pool(16)
         shared_sessions = []
-        for index in xrange(16):
+        for index in range(16):
             shared_sessions.append(index)
         results = p.map(shared_session_check, shared_sessions)
         for result in results:

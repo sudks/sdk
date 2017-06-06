@@ -1,6 +1,5 @@
 import copy
 import logging
-import numbers
 import os
 
 import avi.migrationtools.f5_converter.conversion_util as conv_utils
@@ -11,11 +10,11 @@ LOG = logging.getLogger(__name__)
 
 class MonitorConfigConv(object):
     @classmethod
-    def get_instance(cls, version, f5_monitor_atributes):
+    def get_instance(cls, version, f5_monitor_atributes, prefix):
         if version == '10':
-            return MonitorConfigConvV10(f5_monitor_atributes)
+            return MonitorConfigConvV10(f5_monitor_atributes, prefix)
         if version in ['11', '12']:
-            return MonitorConfigConvV11(f5_monitor_atributes)
+            return MonitorConfigConvV11(f5_monitor_atributes, prefix)
 
     def get_defaults(self, monitor_config, key):
         pass
@@ -67,6 +66,9 @@ class MonitorConfigConv(object):
                 continue
             f5_monitor = self.get_defaults(monitor_config, key)
             monitor_type, name = self.get_name_type(f5_monitor, key)
+            # Added prefix for objects
+            if self.prefix:
+                name = self.prefix + '-' + name
             try:
                 LOG.debug("Converting monitor: %s" % name)
                 if monitor_type not in self.supported_types:
@@ -103,16 +105,21 @@ class MonitorConfigConv(object):
         interval = int(f5_monitor.get("interval", conv_const.DEFAULT_INTERVAL))
         time_until_up = int(f5_monitor.get(self.tup,
                                            conv_const.DEFAULT_TIME_UNTIL_UP))
-        successful_checks = int(timeout/interval)
-        failed_checks = conv_const.DEFAULT_FAILED_CHECKS
+        # Fixed Successful interval and failed checks
+        failed_checks = int(timeout/interval)
+        successful_checks = conv_const.DEFAULT_FAILED_CHECKS
         if time_until_up > 0:
-            failed_checks = int(time_until_up/interval)
-            failed_checks = 1 if failed_checks == 0 else failed_checks
+            successful_checks = int(time_until_up/interval)
+            successful_checks = 1 \
+                if successful_checks == 0 else successful_checks
 
         description = f5_monitor.get("description", None)
         monitor_dict = dict()
         tenant, name = conv_utils.get_tenant_ref(name)
-        if  tenant_ref != 'admin':
+        # Added prefix for objects
+        if self.prefix:
+            name = self.prefix + '-' + name
+        if tenant_ref != 'admin':
             tenant = tenant_ref
         monitor_dict['tenant_ref'] = conv_utils.get_object_ref(tenant, 'tenant')
         monitor_dict["name"] = name
@@ -185,11 +192,13 @@ class MonitorConfigConv(object):
 
 
 class MonitorConfigConvV11(MonitorConfigConv):
-    def __init__(self, f5_monitor_attributes):
+    def __init__(self, f5_monitor_attributes, prefix):
         self.supported_types = f5_monitor_attributes['Monitor_Supported_Types']
         self.tup = "time-until-up"
-        self.supported_attributes = f5_monitor_attributes['Monitor_Supported_Attributes']
-        self.indirect_mappings = f5_monitor_attributes['Monitor_Indirect_Mappings']
+        self.supported_attributes = \
+            f5_monitor_attributes['Monitor_Supported_Attributes']
+        self.indirect_mappings = \
+            f5_monitor_attributes['Monitor_Indirect_Mappings']
         self.ignore = f5_monitor_attributes['Monitor_Ignore']
         self.dest_key = "destination"
         self.na_http = f5_monitor_attributes['Monitor_Na_Http']
@@ -205,6 +214,8 @@ class MonitorConfigConvV11(MonitorConfigConv):
         self.tcp_attr = f5_monitor_attributes['Monitor_tcp_attr']
         self.udp_attr = f5_monitor_attributes['Monitor_udp_attr']
         self.ext_attr = f5_monitor_attributes['Monitor_ext_attr']
+        # Added prefix for objects
+        self.prefix = prefix
 
     def get_default_monitor(self, monitor_type, monitor_config):
         default_name = "%s %s" % (monitor_type, monitor_type)
@@ -406,12 +417,19 @@ class MonitorConfigConvV11(MonitorConfigConv):
                                       conv_const.STATUS_MISSING_FILE)
             monitor_dict['error'] = True
             return None
-        ext_monitor = {
-            "command_code": cmd_code,
-            "command_parameters": f5_monitor.get("args", None),
-            "command_variables": user_defined_vars
-        }
-        monitor_dict["external_monitor"] = ext_monitor
+        if cmd_code:
+            ext_monitor = {
+                "command_code": cmd_code,
+                "command_parameters": f5_monitor.get("args", None),
+                "command_variables": user_defined_vars
+            }
+            monitor_dict["external_monitor"] = ext_monitor
+        else:
+            LOG.warn("MISSING File: %s" % name)
+            conv_utils.add_status_row("monitor", "external", name,
+                                      conv_const.STATUS_MISSING_FILE)
+            monitor_dict['error'] = True
+            return None
         return skipped
 
     def get_maintenance_response(self, f5_monitor):
@@ -443,11 +461,13 @@ class MonitorConfigConvV11(MonitorConfigConv):
 
 
 class MonitorConfigConvV10(MonitorConfigConv):
-    def __init__(self, f5_monitor_attributes):
+    def __init__(self, f5_monitor_attributes, prefix):
         self.supported_types = f5_monitor_attributes['Monitor_Supported_Types']
         self.tup = "time until up"
-        self.supported_attributes =f5_monitor_attributes['Monitor_Supported_Attributes']
-        self.indirect_mappings = f5_monitor_attributes['Monitor_Indirect_Mappings']
+        self.supported_attributes =\
+            f5_monitor_attributes['Monitor_Supported_Attributes']
+        self.indirect_mappings = \
+            f5_monitor_attributes['Monitor_Indirect_Mappings']
         self.ignore = f5_monitor_attributes['Monitor_Ignore']
         self.dest_key = "dest"
         self.na_http = f5_monitor_attributes['Monitor_Na_Http']
@@ -462,6 +482,8 @@ class MonitorConfigConvV10(MonitorConfigConv):
         self.tcp_attr = f5_monitor_attributes['Monitor_tcp_attr']
         self. udp_attr = f5_monitor_attributes['Monitor_udp_attr']
         self.ext_attr = f5_monitor_attributes['Monitor_ext_attr']
+        # Added prefix for objects
+        self.prefix = prefix
 
     def get_name_type(self, f5_monitor, key):
         return f5_monitor.get("type"), key
@@ -649,12 +671,20 @@ class MonitorConfigConvV10(MonitorConfigConv):
             monitor_dict['error'] = True
             return None
         monitor_dict["type"] = "HEALTH_MONITOR_EXTERNAL"
-        ext_monitor = {
-            "command_code": cmd_code,
-            "command_parameters": cmd_params,
-            "command_variables": script_vars
-        }
-        monitor_dict["external_monitor"] = ext_monitor
+        if cmd_code:
+            ext_monitor = {
+                "command_code": cmd_code,
+                "command_parameters": cmd_params,
+                "command_variables": script_vars
+            }
+            monitor_dict["external_monitor"] = ext_monitor
+        else:
+            LOG.warn("MISSING File: %s" % name)
+            conv_utils.add_status_row("monitor", "external", name,
+                                      conv_const.STATUS_MISSING_FILE)
+            monitor_dict['error'] = True
+            return None
+
         return skipped
 
     def get_maintenance_response(self, f5_monitor):

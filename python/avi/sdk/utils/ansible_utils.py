@@ -55,7 +55,7 @@ def purge_optional_fields(obj, module):
     return modified obj
     """
     purge_fields = []
-    for param, spec in module.argument_spec.iteritems():
+    for param, spec in module.argument_spec.items():
         if not spec.get('required', False):
             if param not in obj:
                 # these are ansible common items
@@ -72,21 +72,33 @@ def cleanup_absent_fields(obj):
     """
     cleans up any field that is marked as state: absent. It needs to be removed
     from the object if it is present.
+    :param obj:
+    :return: Purged object
     """
     if type(obj) != dict:
         return obj
     cleanup_keys = []
-    for k, v in obj.iteritems():
+    for k, v in obj.items():
         if type(v) == dict:
             if (('state' in v and v['state'] == 'absent') or
                     (v == "{'state': 'absent'}")):
                 cleanup_keys.append(k)
             else:
                 cleanup_absent_fields(v)
-        if type(v) == list:
-                cleanup_absent_fields(k)
-
-        if isinstance(v, basestring) or isinstance(v, unicode):
+                if not v:
+                    cleanup_keys.append(k)
+        elif type(v) == list:
+            new_list = []
+            for elem in v:
+                elem = cleanup_absent_fields(elem)
+                if elem:
+                    # remove the item from list
+                    new_list.append(elem)
+            if new_list:
+                obj[k] = new_list
+            else:
+                cleanup_keys.append(k)
+        elif isinstance(v, str) or isinstance(v, str):
             if v == "{'state': 'absent'}":
                 cleanup_keys.append(k)
     for k in cleanup_keys:
@@ -122,14 +134,14 @@ def ref_n_str_cmp(x, y):
     Returns
         True if they are equivalent else False
     """
-    if (type(y) in (int, float, bool, long, complex)):
+    if (type(y) in (int, float, bool, int, complex)):
         y = str(y)
         x = str(x)
-    if not ((isinstance(x, basestring) or isinstance(x, unicode)) and
-            (isinstance(y, basestring) or isinstance(y, unicode))):
+    if not ((isinstance(x, str) or isinstance(x, unicode)) and
+            (isinstance(y, str) or isinstance(y, unicode))):
         return False
-
-    y_uuid = y_name = y
+    y_uuid = y_name = str(y)
+    x = str(x)
     if RE_REF_MATCH.match(x):
         x = x.split('name=')[1]
     elif HTTP_REF_MATCH.match(x):
@@ -188,7 +200,7 @@ def avi_obj_cmp(x, y, sensitive_fields=None):
     """
     if not sensitive_fields:
         sensitive_fields = set()
-    if isinstance(x, basestring) or isinstance(x, unicode):
+    if isinstance(x, str) or isinstance(x, str):
         # Special handling for strings as they can be references.
         return ref_n_str_cmp(x, y)
     if type(x) not in [list, dict]:
@@ -203,47 +215,55 @@ def avi_obj_cmp(x, y, sensitive_fields=None):
             if not avi_obj_cmp(i[0], i[1], sensitive_fields=sensitive_fields):
                 # no need to continue
                 return False
+
     if type(x) == dict:
         x.pop('_last_modified', None)
         x.pop('tenant', None)
         y.pop('_last_modified', None)
         x.pop('api_version', None)
         y.pop('api_verison', None)
-        d_xks = []
-        for k, v in x.iteritems():
-            if ((k in sensitive_fields) or
-                    ((not v) and (type(v) in (list, dict)))):
-                d_xks.append(k)
+        d_xks = [k for k in x.keys() if k in sensitive_fields]
+
         if d_xks:
             # if there is sensitive field then always return changed
             return False
         # pop the keys that are marked deleted but not present in y
         # return false if item is marked absent and is present in y
         d_x_absent_ks = []
-        for k, v in x.iteritems():
-            if ((type(v) == dict) and ('state' in v) and
-                    (v['state'] == 'absent')):
-                if type(y) == dict and k not in y:
+        for k, v in x.items():
+            if isinstance(v, dict):
+                if ('state' in v) and (v['state'] == 'absent'):
+                    if type(y) == dict and k not in y:
+                        d_x_absent_ks.append(k)
+                    else:
+                        return False
+                elif not v:
                     d_x_absent_ks.append(k)
-                else:
-                    return False
-            if isinstance(v, basestring) or isinstance(v, unicode):
-                # this is the case when ansible converts the dictionary into a string.
+            elif isinstance(v, list) and not v:
+                d_x_absent_ks.append(k)
+            # Added condition to check key in dict.
+            elif isinstance(v, str) or (k in y and isinstance(y[k], str)):
+                # this is the case when ansible converts the dictionary into a
+                # string.
                 if v == "{'state': 'absent'}" and k not in y:
                     d_x_absent_ks.append(k)
-                if not v and k not in y:
-                    # this is the case when x has set the value that qualifies as not but y does not have that value
+                elif not v and k not in y:
+                    # this is the case when x has set the value that qualifies
+                    # as not but y does not have that value
                     d_x_absent_ks.append(k)
         for k in d_x_absent_ks:
             x.pop(k)
         x_keys = set(x.keys())
         y_keys = set(y.keys())
         if not x_keys.issubset(y_keys):
+            # log.debug('x has %s and y has %s keys', len(x_keys), len(y_keys))
             return False
-        for k, v in x.iteritems():
+        for k, v in x.items():
             if k not in y:
+                # log.debug('k %s is not in y %s', k, y)
                 return False
             if not avi_obj_cmp(v, y[k], sensitive_fields=sensitive_fields):
+                # log.debug('k %s v %s did not match in y %s', k, v, y[k])
                 return False
     return True
 
@@ -339,10 +359,11 @@ def avi_ansible_api(module, obj_type, sensitive_fields):
     if existing_obj:
         # this is case of modify as object exists. should find out
         # if changed is true or not
-        log.error('EXISTING OBJ %s', existing_obj)
         changed = not avi_obj_cmp(obj, existing_obj, sensitive_fields)
-        cleanup_absent_fields(obj)
+        obj = cleanup_absent_fields(obj)
         if changed:
+            log.debug('EXISTING OBJ %s', existing_obj)
+            log.debug('NEW OBJ %s', obj)
             if name is not None:
                 obj_uuid = existing_obj['uuid']
                 obj_path = '%s/%s' % (obj_type, obj_uuid)
