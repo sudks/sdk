@@ -13,8 +13,10 @@ from avi.migrationtools.netscaler_converter.ns_constants \
 
 from avi.migrationtools.netscaler_converter.policy_converter \
     import PolicyConverter
-from avi.migrationtools.netscaler_converter.profile_converter \
-    import merge_profile_mapping
+from avi.migrationtools.netscaler_converter.ns_service_converter \
+    import app_per_merge_count
+from avi.migrationtools.netscaler_converter.monitor_converter \
+    import merge_object_mapping
 
 LOG = logging.getLogger(__name__)
 redirect_pools = {}
@@ -26,14 +28,14 @@ class LbvsConverter(object):
 
 
     def __init__(self, tenant_name, cloud_name, tenant_ref, cloud_ref,
-                 profile_merge_check, controller_version, user_ignore, prefix):
+                 object_merge_check, controller_version, user_ignore, prefix):
         """
         Construct a new 'LbvsConverter' object.
         :param tenant_name: Name of tenant
         :param cloud_name: Name of cloud
         :param tenant_ref: Tenant reference
         :param cloud_ref: Cloud Reference
-        :param profile_merge_check: Bool value for profile merge
+        :param object_merge_check: Bool value for object merge
         :param user_ignore: Dict of user ignore attributes
         :param prefix: prefix for objects
         """
@@ -53,7 +55,7 @@ class LbvsConverter(object):
         self.cloud_name = cloud_name
         self.tenant_ref = tenant_ref
         self.cloud_ref = cloud_ref
-        self.profile_merge_check = profile_merge_check
+        self.object_merge_check = object_merge_check
         self.controller_version = controller_version
         # List of ignore val attributes for add lbvs netscaler command.
         self.lbvs_user_ignore = user_ignore.get('lbvs', [])
@@ -216,8 +218,8 @@ class LbvsConverter(object):
 
                 if app_profile:
                     # Get the merge application profile name
-                    if self.profile_merge_check:
-                        app_profile = merge_profile_mapping['app_profile'].get(
+                    if self.object_merge_check:
+                        app_profile = merge_object_mapping['app_profile'].get(
                             app_profile, None)
                     # Added prefix for objects
                     if self.prefix:
@@ -381,18 +383,33 @@ class LbvsConverter(object):
                     persist_profile = \
                         ns_util.convert_persistance_prof(lb_vs, profile_name,
                                                          self.tenant_ref)
-                    avi_config['ApplicationPersistenceProfile'].append(
-                        persist_profile)
+                    persist_profile_name = persist_profile['name']
+                    if self.object_merge_check:
+                        dup_of = ns_util.update_skip_duplicates(persist_profile,
+                                avi_config['ApplicationPersistenceProfile'],
+                            'app_persist_profile', merge_object_mapping,
+                                                        persist_profile_name)
+                        if dup_of:
+                            app_per_merge_count['count'] += 1
+                            persist_profile_name = merge_object_mapping[
+                                'app_persist_profile'].get(
+                                persist_profile_name, None)
+                        else:
+                            avi_config['ApplicationPersistenceProfile'].append(
+                                persist_profile)
+                    else:
+                        avi_config['ApplicationPersistenceProfile'].append(
+                            persist_profile)
                     self.update_pool_for_persist(avi_config, pool_group,
-                                                 profile_name)
+                                                 persist_profile_name)
                 elif not persistenceType == 'NONE':
                     LOG.warning('Persistance type %s not supported by Avi' %
                              persistenceType)
                 ntwk_prof = lb_vs.get('tcpProfileName', None)
                 if ntwk_prof:
                     # Get the merge network profile name
-                    if self.profile_merge_check:
-                        ntwk_prof = merge_profile_mapping[
+                    if self.object_merge_check:
+                        ntwk_prof = merge_object_mapping[
                             'network_profile'].get(ntwk_prof, None)
                     # Added prefix for objects
                     if self.prefix:
@@ -466,6 +483,9 @@ class LbvsConverter(object):
                                 mapping['attrs'][0] = self.prefix + '-' + \
                                                       mapping['attrs'][0]
                             pki_ref = mapping['attrs'][0]
+                            if self.object_merge_check:
+                                pki_ref = merge_object_mapping[
+                                    'pki_profile'].get(pki_ref)
                             if [pki_profile for pki_profile in
                                 avi_config["PKIProfile"] if
                                 pki_profile['name'] == pki_ref]:
@@ -523,9 +543,9 @@ class LbvsConverter(object):
                     if self.prefix:
                         ssl_profile_name = self.prefix + '-' + ssl_profile_name
                     # Get the merge ssl profile name
-                    if self.profile_merge_check:
+                    if self.object_merge_check:
                         ssl_profile_name = \
-                            merge_profile_mapping['ssl_profile'].get(
+                            merge_object_mapping['ssl_profile'].get(
                                 ssl_profile_name, None)
                     if mapping and [ssl_profile for ssl_profile in
                                     avi_config["SSLProfile"] if

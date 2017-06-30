@@ -10,11 +10,22 @@ from avi.migrationtools.netscaler_converter.ns_constants \
 
 LOG = logging.getLogger(__name__)
 
+# Define Dict of merge_object_mapping to update the merged monitor, profile
+# name of ssl_profile, application_profile, network_profile etc
+merge_object_mapping = {
+    'ssl_profile': {},
+    'app_profile': {},
+    'network_profile': {},
+    'app_persist_profile': {},
+    'pki_profile': {},
+    'health_monitor': {}
+}
+
 
 class MonitorConverter(object):
 
     def __init__(self, tenant_name, cloud_name, tenant_ref, cloud_ref,
-                 user_ignore, prefix):
+                 user_ignore, prefix, object_merge_check):
         """
         Construct a new 'MonitorConverter' object.
         :param tenant_name: Name of tenant
@@ -43,6 +54,8 @@ class MonitorConverter(object):
         self.user_ignore = user_ignore.get('monitor', [])
         # Added prefix flag
         self.prefix = prefix
+        self.object_merge_check = object_merge_check
+        self.monitor_merge_count = 0
 
     def convert(self, ns_config, avi_config, input_dir):
         """
@@ -84,7 +97,20 @@ class MonitorConverter(object):
             ns_util.add_conv_status(
                 ns_monitor['line_no'], netscalar_command, name,
                 ns_monitor_complete_command, conv_status, avi_monitor)
-            avi_config['HealthMonitor'].append(avi_monitor)
+            if self.object_merge_check:
+                # Check health monitor is duplicate of other
+                # health monitor then skipped this health
+                # monitor and increment of count of
+                # monitor_merge_count
+                dup_of = ns_util.update_skip_duplicates(
+                    avi_monitor, avi_config['HealthMonitor'], 'health_monitor',
+                    merge_object_mapping, avi_monitor['name'])
+                if dup_of:
+                    self.monitor_merge_count += 1
+                else:
+                    avi_config['HealthMonitor'].append(avi_monitor)
+            else:
+                avi_config['HealthMonitor'].append(avi_monitor)
             LOG.debug("Health monitor conversion completed : %s" % name)
 
     def convert_monitor(self, ns_monitor, input_dir, netscalar_command,

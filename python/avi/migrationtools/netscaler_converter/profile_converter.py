@@ -10,23 +10,18 @@ from OpenSSL import crypto as c
 from avi.migrationtools.netscaler_converter.ns_constants \
     import (STATUS_SKIPPED, STATUS_SUCCESSFUL, STATUS_INDIRECT,
             STATUS_MISSING_FILE, STATUS_COMMAND_NOT_SUPPORTED)
-
+from avi.migrationtools.netscaler_converter.monitor_converter \
+    import merge_object_mapping
 LOG = logging.getLogger(__name__)
 
 tmp_ssl_key_and_cert_list = []
 tmp_pki_profile_list = []
-# Define Dict of merge_profile_mapping to update the merged profile name of
-# ssl_profile, application_profile, network_profile
-merge_profile_mapping = {
-    'ssl_profile': {},
-    'app_profile': {},
-    'network_profile': {}
-}
+
 
 
 class ProfileConverter(object):
     def __init__(self, tenant_name, cloud_name, tenant_ref, cloud_ref,
-                 ssl_ciphers, profile_merge_check, user_ignore, prefix,
+                 ssl_ciphers, object_merge_check, user_ignore, prefix,
                  keypassphrase=None):
         """
         Construct a new 'ProfileConverter' object.
@@ -36,7 +31,7 @@ class ProfileConverter(object):
         :param cloud_ref: Cloud Reference
         :param ssl_ciphers: Object of list of supported and
         non supported ssl ciphers
-        :param profile_merge_check: Bool value for profile merge
+        :param object_merge_check: Bool value for object merge
         :param user_ignore: Dict of user ignore attributes
         :param prefix: prefix for objects
         :param keypassphrase: path of passphrase yaml file
@@ -95,11 +90,12 @@ class ProfileConverter(object):
         self.cloud_name = cloud_name
         self.tenant_ref = tenant_ref
         self.cloud_ref = cloud_ref
-        self.profile_merge_check = profile_merge_check
+        self.object_merge_check = object_merge_check
         # Initialize merge count of ssl, application, network profiles
         self.ssl_merge_count = 0
         self.application_merge_count = 0
         self.network_merge_count = 0
+        self.pki_merge_count = 0
         # ssl cipher yaml
         self.supported_netscaler_to_open_ssl_cipher = ssl_ciphers.get(
             'supported_netscaler_to_open_ssl_cipher', {})
@@ -160,11 +156,11 @@ class ProfileConverter(object):
         set_ssl_service_group = ns_config.get('set ssl serviceGroup', {})
         bind_ssl_service_group = ns_config.get('bind ssl serviceGroup', {})
 
-        avi_config['ApplicationProfile'] = []
-        avi_config['NetworkProfile'] = []
+        #avi_config['ApplicationProfile'] = []
+        #avi_config['NetworkProfile'] = []
         avi_config["SSLKeyAndCertificate"] = []
-        avi_config["SSLProfile"] = []
-        avi_config["PKIProfile"] = []
+        #avi_config["SSLProfile"] = []
+        #avi_config["PKIProfile"] = []
         LOG.debug("Conversion started for HTTP profiles")
         for key in http_profiles.keys():
             ns_http_profile_command = 'add ns httpProfile'
@@ -182,14 +178,14 @@ class ProfileConverter(object):
                 ns_util.add_conv_status(
                     profile['line_no'], ns_http_profile_command, key,
                     ns_http_profile_complete_command, conv_status, app_profile)
-                if self.profile_merge_check:
+                if self.object_merge_check:
                     # Check application profile is duplicate of other
                     # application profile then skipped this application
                     # profile and increment of count of
                     # application_merge_count
                     dup_of = ns_util.update_skip_duplicates(
                         app_profile, avi_config['ApplicationProfile'],
-                        'app_profile', merge_profile_mapping, key)
+                        'app_profile', merge_object_mapping, key)
                     if dup_of:
                         self.application_merge_count += 1
                     else:
@@ -217,14 +213,14 @@ class ProfileConverter(object):
                 ns_util.add_conv_status(
                     profile['line_no'], ns_tcp_profile_command, key,
                     ns_tcp_profile_complete_command, conv_status, net_profile)
-                if self.profile_merge_check:
+                if self.object_merge_check:
                     # Check network profile is duplicate of other
                     # network profile then skipped this application
                     # profile and increment of count of
                     # network_merge_count
                     dup_of = ns_util.update_skip_duplicates(
                         net_profile, avi_config['NetworkProfile'],
-                        'network_profile', merge_profile_mapping, key)
+                        'network_profile', merge_object_mapping, key)
                     if dup_of:
                         self.network_merge_count += 1
                     else:
@@ -245,7 +241,19 @@ class ProfileConverter(object):
             if obj.get('cert', None):
                 avi_config["SSLKeyAndCertificate"].append(obj.get('cert'))
             if obj.get('pki', None):
-                avi_config["PKIProfile"].append(obj.get('pki'))
+                if self.object_merge_check:
+                    # Check pki profile is duplicate of other pki profile then
+                    # skipped this pki profile and increment of count of
+                    # pki_merge_count
+                    dup_of = ns_util.update_skip_duplicates(
+                        obj['pki'], avi_config['PKIProfile'],
+                        'pki_profile', merge_object_mapping, obj['pki']['name'])
+                    if dup_of:
+                        self.pki_merge_count += 1
+                    else:
+                        avi_config["PKIProfile"].append(obj['pki'])
+                else:
+                    avi_config["PKIProfile"].append(obj['pki'])
 
         # set ssl vserver conversion
         self.convert_ssl_service_profile(
@@ -336,8 +344,20 @@ class ProfileConverter(object):
             if obj.get('cert', None):
                 avi_config["SSLKeyAndCertificate"].append(obj.get('cert'))
             if obj.get('pki', None):
-                avi_config["PKIProfile"].append(obj.get('pki'))
-            if self.profile_merge_check:
+                if self.object_merge_check:
+                    # Check pki profile is duplicate of other pki profile then
+                    # skipped this pki profile and increment of count of
+                    # pki_merge_count
+                    dup_of = ns_util.update_skip_duplicates(
+                        obj['pki'], avi_config['PKIProfile'],
+                        'pki_profile', merge_object_mapping, obj['pki']['name'])
+                    if dup_of:
+                        self.pki_merge_count += 1
+                    else:
+                        avi_config["PKIProfile"].append(obj['pki'])
+                else:
+                    avi_config["PKIProfile"].append(obj['pki'])
+            if self.object_merge_check:
                 # Check ssl profile is duplicate of other ssl profile then
                 # skipped this application profile and increment of count
                 # of ssl_merge_count
@@ -346,7 +366,7 @@ class ProfileConverter(object):
                     ssl_profile_name = self.prefix + '-' + ssl_profile_name
                 dup_of = ns_util.update_skip_duplicates(
                     ssl_profile, avi_config['SSLProfile'], 'ssl_profile',
-                    merge_profile_mapping, ssl_profile_name)
+                    merge_object_mapping, ssl_profile_name)
                 if dup_of:
                     self.ssl_merge_count += 1
                 else:

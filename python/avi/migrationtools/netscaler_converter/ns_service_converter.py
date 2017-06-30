@@ -10,8 +10,10 @@ from avi.migrationtools.netscaler_converter.ns_constants \
             OBJECT_TYPE_SSL_PROFILE, OBJECT_TYPE_HEALTH_MONITOR,
             OBJECT_TYPE_APPLICATION_PERSISTENCE_PROFILE,
             STATUS_EXTERNAL_MONITOR)
-from avi.migrationtools.netscaler_converter.profile_converter \
-    import merge_profile_mapping
+from avi.migrationtools.netscaler_converter.monitor_converter \
+    import merge_object_mapping
+
+app_per_merge_count = {'count': 0}
 
 LOG = logging.getLogger(__name__)
 
@@ -20,14 +22,14 @@ class ServiceConverter(object):
 
 
     def __init__(self, tenant_name, cloud_name, tenant_ref, cloud_ref,
-                 profile_merge_check, user_ignore, prefix):
+                 object_merge_check, user_ignore, prefix):
         """
         Construct a new 'ServiceConverter' object.
         :param tenant_name: Name of tenant
         :param cloud_name: Name of cloud
         :param tenant_ref: Tenant reference
         :param cloud_ref: Cloud Reference
-        :param profile_merge_check: Bool value for profile merge
+        :param object_merge_check: Bool value for object merge
         :param user_ignore: Dict of user ignore attributes
         :param prefix: prefix for objects
         """
@@ -54,7 +56,7 @@ class ServiceConverter(object):
         self.cloud_name = cloud_name
         self.tenant_ref = tenant_ref
         self.cloud_ref = cloud_ref
-        self.profile_merge_check = profile_merge_check
+        self.object_merge_check = object_merge_check
         # List of ignore val attributes for bind service netscaler command.
         self.nsservice_bind_lb_user_ignore = \
             user_ignore.get('nsservice_bind_lb', [])
@@ -80,7 +82,7 @@ class ServiceConverter(object):
         :return: None
         """
 
-        avi_config['ApplicationPersistenceProfile'] = []
+        #avi_config['ApplicationPersistenceProfile'] = []
         used_pool_ref = []
         groups = ns_config.get('bind lb vserver', {})
         lb_vs_conf = ns_config.get('add lb vserver', {})
@@ -223,13 +225,30 @@ class ServiceConverter(object):
                 application_persistence_profile = \
                     ns_util.convert_persistance_prof(set_lb_group, profile_name,
                                                      self.tenant_ref)
+                app_persist_profile_name = \
+                    application_persistence_profile['name']
+                if self.object_merge_check:
+                    dup_of = ns_util.update_skip_duplicates(
+                        application_persistence_profile, avi_config[
+                            'ApplicationPersistenceProfile'],
+                        'app_persist_profile', merge_object_mapping,
+                        app_persist_profile_name)
+                    if dup_of:
+                        app_per_merge_count['count'] += 1
+                        app_persist_profile_name = merge_object_mapping[
+                            'app_persist_profile'].get(
+                            app_persist_profile_name, None)
+                    else:
+                        avi_config['ApplicationPersistenceProfile'].append(
+                            application_persistence_profile)
+                else:
+                    avi_config['ApplicationPersistenceProfile'].append(
+                        application_persistence_profile)
                 application_persistence_profile_ref = \
-                    ns_util.get_object_ref(
-                        application_persistence_profile['name'],
+                    ns_util.get_object_ref(app_persist_profile_name,
                         OBJECT_TYPE_APPLICATION_PERSISTENCE_PROFILE,
                         self.tenant_name)
-                avi_config['ApplicationPersistenceProfile'].append(
-                    application_persistence_profile)
+
                 # Added status successful in CSV/report if application
                 # persistence profile create
                 ns_util.add_status_row(
@@ -348,13 +367,18 @@ class ServiceConverter(object):
                 if isinstance(bind_ssl_service_conf, dict):
                     bind_ssl_service_conf = [bind_ssl_service_conf]
                 for service_conf in bind_ssl_service_conf:
-                    if service_conf.get('CA', None) and \
-                            [pki for pki in avi_config['PKIProfile']
-                             if pki['name'] == service_conf.get('CA')]:
-                        updated_pki_ref = ns_util.get_object_ref(
-                            service_conf.get('CA'), OBJECT_TYPE_PKI_PROFILE,
-                            self.tenant_name)
-                        pool_obj['pki_profile_ref'] = updated_pki_ref
+                    if service_conf.get('CA', None):
+                        # Added prefix for objects
+                        pkiname = self.prefix + '-' + service_conf['CA'] if \
+                            self.prefix else service_conf['CA']
+                        if self.object_merge_check:
+                            pkiname = merge_object_mapping['pki_profile'].get(
+                                pkiname, None)
+                        if [pki for pki in avi_config['PKIProfile']
+                             if pki['name'] == pkiname]:
+                            updated_pki_ref = ns_util.get_object_ref(pkiname,
+                                    OBJECT_TYPE_PKI_PROFILE, self.tenant_name)
+                            pool_obj['pki_profile_ref'] = updated_pki_ref
                     # Added prefix for objects
                     if self.prefix and service_conf.get('certkeyName', None):
                         certname = self.prefix + '-' + \
@@ -374,9 +398,9 @@ class ServiceConverter(object):
                 # Added prefix for objects
                 if self.prefix:
                     ssl_profile_name = self.prefix + '-' + ssl_profile_name
-                if self.profile_merge_check:
+                if self.object_merge_check:
                     # Get the merge ssl profile name
-                    ssl_profile_name = merge_profile_mapping['ssl_profile'].get(
+                    ssl_profile_name = merge_object_mapping['ssl_profile'].get(
                         ssl_profile_name, None)
 
                 if [ssl_prof for ssl_prof in avi_config['SSLProfile']
@@ -457,13 +481,18 @@ class ServiceConverter(object):
                 if isinstance(bind_ssl_service_group_conf, dict):
                     bind_ssl_service_group_conf = [bind_ssl_service_group_conf]
                 for ssl_service_conf in bind_ssl_service_group_conf:
-                    if ssl_service_conf.get('CA', None) \
-                            and [pki for pki in avi_config['PKIProfile']
-                                 if pki['name'] == ssl_service_conf.get('CA')]:
-                        updated_pki_ref = ns_util.get_object_ref(
-                            ssl_service_conf.get('CA'),
-                            OBJECT_TYPE_PKI_PROFILE, self.tenant_name)
-                        pool_obj['pki_profile_ref'] = updated_pki_ref
+                    if ssl_service_conf.get('CA', None):
+                        # Added prefix for objects
+                        pkiname = self.prefix + '-' + ssl_service_conf['CA'] \
+                            if self.prefix else ssl_service_conf['CA']
+                        if self.object_merge_check:
+                            pkiname = merge_object_mapping['pki_profile'].get(
+                                pkiname, None)
+                        if [pki for pki in avi_config['PKIProfile']
+                            if pki['name'] == pkiname]:
+                            updated_pki_ref = ns_util.get_object_ref(pkiname,
+                                    OBJECT_TYPE_PKI_PROFILE, self.tenant_name)
+                            pool_obj['pki_profile_ref'] = updated_pki_ref
                     if ssl_service_conf.get('certkeyName', None) \
                             and [key_cert for key_cert
                                  in avi_config['SSLKeyAndCertificate']
@@ -540,6 +569,10 @@ class ServiceConverter(object):
                     # Added prefix for objects
                     if self.prefix:
                         monitor_name = self.prefix + '-' + monitor_name
+                    if self.object_merge_check:
+                        # Get the merge health monitor name
+                        monitor_name = merge_object_mapping[
+                            'health_monitor'].get(monitor_name, None)
                     if not [monitor for monitor in avi_config['HealthMonitor']
                             if monitor['name'] == monitor_name]:
                         skipped_status = 'External Monitor : Not supported ' \
@@ -659,6 +692,10 @@ class ServiceConverter(object):
                 # Added prefix for objects
                 if self.prefix:
                     monitor_name = self.prefix + '-' + monitor_name
+                if self.object_merge_check:
+                    # Get the merge health monitor name
+                    monitor_name = merge_object_mapping['health_monitor'].get(
+                        monitor_name, None)
                 monitor = [monitor for monitor in avi_config['HealthMonitor']
                            if monitor['name'] == monitor_name]
                 if monitor:

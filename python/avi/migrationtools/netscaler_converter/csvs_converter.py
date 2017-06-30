@@ -14,8 +14,8 @@ from avi.migrationtools.netscaler_converter.ns_constants \
             OBJECT_TYPE_PKI_PROFILE, OBJECT_TYPE_NETWORK_PROFILE)
 from avi.migrationtools.netscaler_converter.policy_converter \
     import PolicyConverter
-from avi.migrationtools.netscaler_converter.profile_converter \
-    import merge_profile_mapping
+from avi.migrationtools.netscaler_converter.monitor_converter \
+    import merge_object_mapping
 
 LOG = logging.getLogger(__name__)
 
@@ -27,14 +27,14 @@ class CsvsConverter(object):
 
 
     def __init__(self, tenant_name, cloud_name, tenant_ref, cloud_ref,
-                 profile_merge_check, controller_version, user_ignore, prefix):
+                 object_merge_check, controller_version, user_ignore, prefix):
         """
         Construct a new 'CsvsConverter' object.
         :param tenant_name: Name of tenant
         :param cloud_name: Name of cloud
         :param tenant_ref: Tenant reference
         :param cloud_ref: Cloud Reference
-        :param profile_merge_check: Bool value for profile merge
+        :param object_merge_check: Bool value for object merge
         :param user_ignore: Dict of user ignore attributes
         :param prefix: prefix for object
         """
@@ -53,7 +53,7 @@ class CsvsConverter(object):
         self.cloud_name = cloud_name
         self.tenant_ref = tenant_ref
         self.cloud_ref = cloud_ref
-        self.profile_merge_check = profile_merge_check
+        self.object_merge_check = object_merge_check
         self.controller_version = controller_version
         # List of ignore val attributes for add csvs netscaler command.
         self.csvs_user_ignore = user_ignore.get('csvs', [])
@@ -174,8 +174,8 @@ class CsvsConverter(object):
                 if self.prefix:
                     http_prof = self.prefix + '-' + http_prof
                 # Get the merge application profile name
-                if self.profile_merge_check:
-                    http_prof = merge_profile_mapping['app_profile'].get(
+                if self.object_merge_check:
+                    http_prof = merge_object_mapping['app_profile'].get(
                         http_prof, None)
                 http_prof = \
                     ns_util.get_object_ref(http_prof,
@@ -196,8 +196,8 @@ class CsvsConverter(object):
                 if self.prefix:
                     ntwk_prof = self.prefix + '-' + ntwk_prof
                 # Get the merge network profile name
-                if self.profile_merge_check:
-                    ntwk_prof = merge_profile_mapping['network_profile'].get(
+                if self.object_merge_check:
+                    ntwk_prof = merge_object_mapping['network_profile'].get(
                         ntwk_prof, None)
                 if ns_util.object_exist('NetworkProfile', ntwk_prof,
                                         avi_config):
@@ -255,6 +255,9 @@ class CsvsConverter(object):
                             mapping['attrs'][0] = self.prefix + '-' + \
                                                   mapping['attrs'][0]
                         pki_ref = mapping['attrs'][0]
+                        if self.object_merge_check:
+                            pki_ref = merge_object_mapping[
+                                'pki_profile'].get(pki_ref)
                         if [pki_profile for pki_profile in
                             avi_config["PKIProfile"] if
                             pki_profile['name'] == pki_ref]:
@@ -315,8 +318,8 @@ class CsvsConverter(object):
                 if self.prefix:
                     ssl_profile_name = self.prefix + '-' + ssl_profile_name
                 # Get the merge ssl profile name
-                if self.profile_merge_check:
-                    ssl_profile_name = merge_profile_mapping['ssl_profile'].get(
+                if self.object_merge_check:
+                    ssl_profile_name = merge_object_mapping['ssl_profile'].get(
                         ssl_profile_name, None)
                 if mapping and [ssl_profile for ssl_profile in
                                 avi_config["SSLProfile"] if
