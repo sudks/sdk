@@ -127,14 +127,12 @@ class MonitorConverter(object):
 
         avi_monitor = dict()
         try:
+            mon_name = ns_monitor['attrs'][0]
             # Added prefix for objects
             if self.prefix:
-                ns_monitor['attrs'][0] = self.prefix + '-' + \
-                                         ns_monitor['attrs'][0]
-            LOG.debug('Conversion started for monitor %s' %
-                      ns_monitor['attrs'][0])
-            avi_monitor["name"] = (ns_monitor['attrs'][0]).strip().\
-                replace(" ", "_")
+                mon_name = self.prefix + '-' + mon_name
+            LOG.debug('Conversion started for monitor %s' % mon_name)
+            avi_monitor["name"] = str(mon_name).strip().replace(" ", "_")
             avi_monitor["tenant_ref"] = self.tenant_ref
             avi_monitor["receive_timeout"] = ns_monitor.get('resptimeout', 2)
             avi_monitor["failed_checks"] = ns_monitor.get('failureRetries', 3)
@@ -216,8 +214,7 @@ class MonitorConverter(object):
                 }
                 avi_monitor["external_monitor"] = ext_monitor
 
-            LOG.debug('Successfully converted monitor %s' %
-                      ns_monitor['attrs'][0])
+            LOG.debug('Successfully converted monitor %s' % mon_name)
         except:
             LOG.error('Error converting monitor %s', exc_info=True)
         return avi_monitor

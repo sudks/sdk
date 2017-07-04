@@ -14,7 +14,7 @@ from avi.migrationtools.netscaler_converter.csvs_converter import \
     CsvsConverter
 from avi.migrationtools.netscaler_converter import ns_util
 from avi.migrationtools.netscaler_converter.profile_converter import \
-    ProfileConverter
+    ProfileConverter, app_merge_count
 
 
 LOG = logging.getLogger(__name__)
@@ -171,8 +171,8 @@ def convert(ns_config_dict, tenant_name, cloud_name, version, output_dir,
                     profile_merged_message = \
                         'Total Objects of %s : %s (%s/%s profile merged)' % \
                         (key, len(avi_config[key]),
-                         abs(profile_converter.application_merge_count),
-                         abs(profile_converter.application_merge_count) +
+                         abs(app_merge_count['count']),
+                         abs(app_merge_count['count']) +
                          len(avi_config[key]))
                     LOG.info(profile_merged_message)
                     print profile_merged_message

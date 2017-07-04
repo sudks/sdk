@@ -164,7 +164,7 @@ class PolicyConverter(object):
                 policy_name, policy_config, rewrite_policy_config,
                 responder_policy_config)
 
-            if not policy or not type:
+            if not policy:
                 skipped_status = 'Skipped: Policy is not created %s' \
                                  % bind_lb_netscalar_complete_command
                 if not policy_type:
@@ -1121,8 +1121,7 @@ class PolicyConverter(object):
                 re.findall('\\\\(.+?)\\\\',
                            policy_action['attrs'][2].strip('"').strip())
             redirect_url = str(path_matches[0]).replace('"', '')
-            redirect_url = ns_util.parse_url(redirect_url)
-            protocol = str(redirect_url.scheme).upper()
+            protocol = str(ns_util.parse_url(redirect_url).scheme).upper()
             redirect_action = {
                 'protocol': protocol,
                 'status_code': 'HTTP_REDIRECT_STATUS_CODE_302',
@@ -1153,8 +1152,7 @@ class PolicyConverter(object):
                 return
             if attrs[1] == '301':
                 redirect_url = str(attrs[4]).replace('"', '')
-                redirect_url = ns_util.parse_url(redirect_url)
-                protocol = str(redirect_url.scheme).upper()
+                protocol = str(ns_util.parse_url(redirect_url).scheme).upper()
                 redirect_action = {
                     'protocol': protocol,
                     'status_code': 'HTTP_REDIRECT_STATUS_CODE_301',

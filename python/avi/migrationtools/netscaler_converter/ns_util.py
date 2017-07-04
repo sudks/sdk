@@ -724,12 +724,12 @@ def check_for_duplicates(src_obj, obj_list):
     return None
 
 
-def update_application_profile(app_profile, pki_profile_ref, tenant_ref, name,
+def update_application_profile(profile_name, pki_profile_ref, tenant_ref, name,
                                avi_config):
     """
     This functions defines to update application profile with pki profile if
     application profile exist if not create new http profile with pki profile
-    :param app_profile: object of Http profile
+    :param profile_name: name of Http profile
     :param pki_profile_ref:  ref of PKI profile
     :param tenant_ref: tenant ref
     :param name: name of virtual service
@@ -738,14 +738,16 @@ def update_application_profile(app_profile, pki_profile_ref, tenant_ref, name,
     """
 
     try:
-        if app_profile:
-            app_profile["http_profile"]['pki_profile_ref'] = pki_profile_ref
-            LOG.debug(
-                'Added PKI profile to application profile successfully : %s' % (
-                    app_profile['name'], pki_profile_ref))
+        if profile_name:
+            app_profile = [p for p in avi_config['ApplicationProfile']
+                       if p['name'] == profile_name]
+            if app_profile:
+                app_profile[0]["http_profile"]['pki_profile_ref'] = \
+                    pki_profile_ref
+                LOG.debug('Added PKI profile to application profile '
+                          'successfully : %s' % (profile_name, pki_profile_ref))
         else:
             app_profile = dict()
-            LOG.debug("Converting httpProfile: %s" % app_profile['attrs'][0])
             app_profile['name'] = name + '-%s-dummy' % random.randrange(0, 1000)
             app_profile['tenant_ref'] = tenant_ref
             app_profile['type'] = 'APPLICATION_PROFILE_TYPE_HTTP'
@@ -756,7 +758,6 @@ def update_application_profile(app_profile, pki_profile_ref, tenant_ref, name,
             http_profile['websockets_enabled'] = False
             http_profile['pki_profile_ref'] = pki_profile_ref
             app_profile["http_profile"] = http_profile
-            avi_config['ApplicationProfile'].append(app_profile)
         LOG.debug("Conversion completed successfully for httpProfile: %s" %
                   app_profile['name'])
     except:

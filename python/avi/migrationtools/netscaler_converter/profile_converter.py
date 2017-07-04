@@ -16,7 +16,7 @@ LOG = logging.getLogger(__name__)
 
 tmp_ssl_key_and_cert_list = []
 tmp_pki_profile_list = []
-
+app_merge_count = {'count': 0}
 
 
 class ProfileConverter(object):
@@ -93,7 +93,6 @@ class ProfileConverter(object):
         self.object_merge_check = object_merge_check
         # Initialize merge count of ssl, application, network profiles
         self.ssl_merge_count = 0
-        self.application_merge_count = 0
         self.network_merge_count = 0
         self.pki_merge_count = 0
         # ssl cipher yaml
@@ -187,7 +186,7 @@ class ProfileConverter(object):
                         app_profile, avi_config['ApplicationProfile'],
                         'app_profile', merge_object_mapping, key)
                     if dup_of:
-                        self.application_merge_count += 1
+                        app_merge_count['count'] += 1
                     else:
                         avi_config['ApplicationProfile'].append(app_profile)
 
@@ -394,11 +393,12 @@ class ProfileConverter(object):
 
         app_profile = dict()
         try:
+            prof_name = profile['attrs'][0]
             # Added prefix for objects
             if self.prefix:
-                profile['attrs'][0] = self.prefix + '-' + profile['attrs'][0]
-            LOG.debug("Converting httpProfile: %s" % profile['attrs'][0])
-            app_profile['name'] = profile['attrs'][0]
+                prof_name = self.prefix + '-' + prof_name
+            LOG.debug("Converting httpProfile: %s" % prof_name)
+            app_profile['name'] = prof_name
             app_profile['tenant_ref'] = self.tenant_ref
             app_profile['type'] = 'APPLICATION_PROFILE_TYPE_HTTP'
             http_profile = dict()
@@ -414,7 +414,7 @@ class ProfileConverter(object):
             http_profile['websockets_enabled'] = websockets
             app_profile["http_profile"] = http_profile
             LOG.debug("Conversion completed successfully for httpProfile: %s" %
-                      profile['attrs'][0])
+                      prof_name)
         except:
             LOG.error("Error in convertion of httpProfile", exc_info=True)
 
@@ -429,9 +429,10 @@ class ProfileConverter(object):
 
         ntwk_profile = None
         try:
+            prof_name = profile['attrs'][0]
             # Added prefix for objects
             if self.prefix:
-                profile['attrs'][0] = self.prefix + '-' + profile['attrs'][0]
+                prof_name = self.prefix + '-' + prof_name
             nagle = profile.get("nagle", 'DISABLED')
             nagle = False if nagle == 'DISABLED' else True
             mss = profile.get("mss", 0)
@@ -447,7 +448,7 @@ class ProfileConverter(object):
                     },
                     "type": "PROTOCOL_TYPE_TCP_PROXY"
                 },
-                "name": profile['attrs'][0],
+                "name": prof_name,
                 "tenant_ref": self.tenant_ref
             }
         except:
@@ -565,11 +566,11 @@ class ProfileConverter(object):
                         pki_profile['crl_check'] = False
                     if crl_str:
                         pki_profile["crls"] = [{'body': crl_str}]
+                    pki_name = mapping['attrs'][0]
                     # Added prefix for objects
                     if self.prefix:
-                        mapping['attrs'][0] = self.prefix + '-' + \
-                                              mapping['attrs'][0]
-                    pki_profile["name"] = mapping['attrs'][0]
+                        pki_name = self.prefix + '-' + pki_name
+                    pki_profile["name"] = pki_name
                     pki_profile["tenant_ref"] = self.tenant_ref
                     obj['pki'] = pki_profile
                     output = pki_profile
