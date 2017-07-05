@@ -676,30 +676,6 @@ def create_self_signed_cert():
     return key, cert
 
 
-def update_skip_duplicates(obj, obj_list, obj_type, converted_objs, name,
-                           default_profile_name):
-    """
-    Merge duplicate profiles
-    :param obj: Source object to find duplicates for
-    :param obj_list: List of object to search duplicates in
-    :param obj_type: Type of object to add in converted_objs status
-    :param converted_objs: Converted avi object or merged object name
-    :param name: Name of the object
-    :param default_profile_name : Name of root parent default profile
-    :return:
-    """
-    dup_of = None
-    # root default profiles are skipped for merging
-    if not name == default_profile_name:
-        dup_of = check_for_duplicates(obj, obj_list)
-    if dup_of:
-        converted_objs.append({obj_type: "Duplicate of %s" % dup_of})
-        LOG.info("Duplicate profiles: %s merged in %s" % (obj['name'], dup_of))
-    else:
-        obj_list.append(obj)
-        converted_objs.append({obj_type: obj})
-
-
 def check_for_duplicates(src_obj, obj_list):
     """
     Checks for duplicate objects except name and description values
@@ -1509,3 +1485,18 @@ def get_redirect_fail_action(url):
         redirect_fail_action['fail_action']['redirect']['query'] = parsed.query
 
     return redirect_fail_action
+
+
+def cleanup_dupof(avi_config):
+    remove_dup_key(avi_config["ApplicationProfile"])
+    remove_dup_key(avi_config["NetworkProfile"])
+    remove_dup_key(avi_config["SSLProfile"])
+    remove_dup_key(avi_config['PKIProfile'])
+    remove_dup_key(avi_config["ApplicationPersistenceProfile"])
+    remove_dup_key(avi_config['HealthMonitor'])
+
+
+def remove_dup_key(obj_list):
+    for obj in obj_list:
+        obj.pop('dup_of', None)
+

@@ -145,6 +145,7 @@ def convert(ns_config_dict, tenant_name, cloud_name, version, output_dir,
 
         LOG.debug('Conversion completed successfully')
         ns_util.cleanup_config(tmp_avi_config)
+        ns_util.cleanup_dupof(avi_config)
         avi_config.pop('Lbvs', None)
         # added code to get fully converted virtual service.
         for key in avi_config:
