@@ -82,7 +82,6 @@ class ServiceConverter(object):
         :return: None
         """
 
-        #avi_config['ApplicationPersistenceProfile'] = []
         used_pool_ref = []
         groups = ns_config.get('bind lb vserver', {})
         lb_vs_conf = ns_config.get('add lb vserver', {})
@@ -379,8 +378,8 @@ class ServiceConverter(object):
                             updated_pki_ref = ns_util.get_object_ref(pkiname,
                                     OBJECT_TYPE_PKI_PROFILE, self.tenant_name)
                             pool_obj['pki_profile_ref'] = updated_pki_ref
-                    # Added prefix for objects
-                    if self.prefix and service_conf.get('certkeyName', None):
+                    if service_conf.get('certkeyName', None):
+                        # Added prefix for objects
                         certname = self.prefix + '-' + \
                                    service_conf['certkeyName'] if \
                                     self.prefix else service_conf['certkeyName']
@@ -494,6 +493,9 @@ class ServiceConverter(object):
                         # Added prefix for objects
                         pkiname = self.prefix + '-' + ssl_service_conf['CA'] \
                                     if self.prefix else ssl_service_conf['CA']
+                        if self.object_merge_check:
+                            pkiname = merge_object_mapping['pki_profile'].get(
+                                pkiname, None)
                         if [pki for pki in avi_config['PKIProfile']
                                  if pki['name'] == pkiname]:
                             updated_pki_ref = ns_util.get_object_ref(pkiname,
@@ -526,7 +528,7 @@ class ServiceConverter(object):
                     ssl_profile_name = self.prefix + '-' + ssl_profile_name
                 if self.profile_merge_check:
                     # Get the merge ssl profile name
-                    ssl_profile_name = merge_profile_mapping['ssl_profile'].get(
+                    ssl_profile_name = merge_object_mapping['ssl_profile'].get(
                         ssl_profile_name, None)
                 if [ssl_prof for ssl_prof in avi_config['SSLProfile']
                     if ssl_prof['name'] == ssl_profile_name]:
