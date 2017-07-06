@@ -719,7 +719,8 @@ def update_pool_for_persist(avi_pool_list, pool_ref, persist_profile,
         return False
     pool_obj = pool_obj[0]
     persist_profile_obj = [obj for obj in persist_config
-                           if obj["name"] == persist_profile]
+                           if (obj["name"] == persist_profile or
+                               persist_profile in obj.get("dup_of", []))]
     persist_ref_key = "application_persistence_profile_ref"
     if persist_profile_obj:
         obj_tenant = persist_profile_obj[0]['tenant_ref']
