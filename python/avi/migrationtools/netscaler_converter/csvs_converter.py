@@ -517,7 +517,6 @@ class CsvsConverter(object):
                 cs_vs['line_no'], ns_add_cs_vserver_command,
                 key, ns_add_cs_vserver_complete_command, conv_status, vs_obj)
             LOG.debug("Context Switch VS conversion completed for: %s" % key)
-        print merge_object_mapping
         vs_list = [obj for obj in lbvs_avi_conf if obj not in lb_vs_mapped]
         vs_list += cs_vs_list
         avi_config['VirtualService'] = vs_list

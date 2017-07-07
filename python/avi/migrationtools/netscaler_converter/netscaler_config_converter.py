@@ -7,7 +7,7 @@ from pkg_resources import parse_version
 from avi.migrationtools.netscaler_converter.ns_service_converter \
     import ServiceConverter, app_per_merge_count
 from avi.migrationtools.netscaler_converter.monitor_converter import \
-    MonitorConverter
+    MonitorConverter, merge_object_mapping
 from avi.migrationtools.netscaler_converter.lbvs_converter import \
     LbvsConverter, tmp_avi_config
 from avi.migrationtools.netscaler_converter.csvs_converter import \
@@ -136,7 +136,16 @@ def convert(ns_config_dict, tenant_name, cloud_name, version, output_dir,
             tenant_name, cloud_name, tenant_ref, cloud_ref, object_merge_check,
             version, user_ignore, prefix)
         csvs_converter.convert(ns_config_dict, avi_config, vs_state)
-
+        # Updating the reference for application persistence profile as we
+        # are assigning reference at the time of profile creation
+        ns_util.update_profile_ref('application_persistence_profile_ref',
+                                   tenant_name, avi_config['Pool'],
+                                   merge_object_mapping['app_persist_profile'])
+        # Updating the reference for application persistence profile as we
+        # are assigning reference at the time of profile creation
+        ns_util.update_profile_ref('application_profile_ref',
+                                   tenant_name, avi_config['VirtualService'],
+                                   merge_object_mapping['app_profile'])
         # Add status for skipped netscalar commands in CSV/report
         ns_util.update_status_for_skipped(skipped_cmds)
         # Add/update CSV/report
@@ -145,7 +154,7 @@ def convert(ns_config_dict, tenant_name, cloud_name, version, output_dir,
 
         LOG.debug('Conversion completed successfully')
         ns_util.cleanup_config(tmp_avi_config)
-        #ns_util.cleanup_dupof(avi_config)
+        ns_util.cleanup_dupof(avi_config)
         avi_config.pop('Lbvs', None)
         # added code to get fully converted virtual service.
         for key in avi_config:

@@ -226,9 +226,6 @@ class ServiceConverter(object):
                                                      self.tenant_ref)
                 app_persist_profile_name = \
                     application_persistence_profile['name']
-                if app_persist_profile_name == \
-                        'normtest_443_lbv-persistance-profile':
-                    print 'hi'
                 if self.object_merge_check:
                     dup_of = ns_util.update_skip_duplicates(
                         application_persistence_profile, avi_config[

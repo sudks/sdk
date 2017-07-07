@@ -21,7 +21,8 @@ from avi.migrationtools.netscaler_converter.ns_constants \
             STATUS_INCOMPLETE_CONFIGURATION, STATUS_COMMAND_NOT_SUPPORTED,
             OBJECT_TYPE_POOL_GROUP, OBJECT_TYPE_POOL, STATUS_NOT_IN_USE,
             OBJECT_TYPE_HTTP_POLICY_SET, STATUS_LIST, COMPLEXITY_ADVANCED,
-            COMPLEXITY_BASIC)
+            COMPLEXITY_BASIC, OBJECT_TYPE_APPLICATION_PERSISTENCE_PROFILE,
+            OBJECT_TYPE_APPLICATION_PROFILE)
 
 LOG = logging.getLogger(__name__)
 
@@ -1513,6 +1514,16 @@ def remove_dup_key(obj_list):
         obj.pop('dup_of', None)
 
 
-def update_profile_ref(avi_obj, merge_obj_list):
-    pass
+def update_profile_ref(ref, tenant, avi_obj, merge_obj_list):
+    for obj in avi_obj:
+        obj_ref = obj.get(ref)
+        if obj_ref:
+            name = get_name(obj_ref)
+            if name in merge_obj_list:
+                updated_name = merge_obj_list[name]
+                if ref == 'application_persistence_profile_ref':
+                    type_cons = OBJECT_TYPE_APPLICATION_PERSISTENCE_PROFILE
+                if ref == 'application_profile_ref':
+                    type_cons = OBJECT_TYPE_APPLICATION_PROFILE
+                obj[ref] = get_object_ref(updated_name, type_cons, tenant)
 
