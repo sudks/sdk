@@ -226,12 +226,15 @@ class ServiceConverter(object):
                                                      self.tenant_ref)
                 app_persist_profile_name = \
                     application_persistence_profile['name']
+                if app_persist_profile_name == \
+                        'normtest_443_lbv-persistance-profile':
+                    print 'hi'
                 if self.object_merge_check:
                     dup_of = ns_util.update_skip_duplicates(
                         application_persistence_profile, avi_config[
                             'ApplicationPersistenceProfile'],
                         'app_persist_profile', merge_object_mapping,
-                        app_persist_profile_name)
+                        app_persist_profile_name, persistenceType, self.prefix)
                     if dup_of:
                         app_per_merge_count['count'] += 1
                         app_persist_profile_name = merge_object_mapping[
@@ -526,7 +529,7 @@ class ServiceConverter(object):
                 # Added prefix for objects
                 if self.prefix:
                     ssl_profile_name = self.prefix + '-' + ssl_profile_name
-                if self.profile_merge_check:
+                if self.object_merge_check:
                     # Get the merge ssl profile name
                     ssl_profile_name = merge_object_mapping['ssl_profile'].get(
                         ssl_profile_name, None)

@@ -676,7 +676,8 @@ def create_self_signed_cert():
     return key, cert
 
 
-def check_for_duplicates(src_obj, obj_list):
+def check_for_duplicates(src_obj, obj_list, obj_type, merge_object_mapping,
+                         ent_type, prefix):
     """
     Checks for duplicate objects except name and description values
     :param src_obj: Object to be checked for duplicate
@@ -692,12 +693,20 @@ def check_for_duplicates(src_obj, obj_list):
         del tmp_cp["name"]
         if "description" in tmp_cp:
             del tmp_cp["description"]
-        dup_lst = tmp_cp.pop("dup_of", [])
+        dup_lst = tmp_cp.pop("dup_of", [tmp_obj["name"]])
         if cmp(src_cp, tmp_cp) == 0:
             dup_lst.append(src_obj["name"])
             tmp_obj["dup_of"] = dup_lst
-            return tmp_obj["name"]
-    return None
+            old_name = tmp_obj['name']
+            if tmp_obj["name"] in merge_object_mapping[obj_type].keys():
+                merge_object_mapping[obj_type]['no'] += 1
+                no = merge_object_mapping[obj_type]['no']
+                mid_name = ent_type and (ent_type + '-' + obj_type + '-' +
+                                         str(no)) or (obj_type + '-' + str(no))
+                new_name = prefix + '-' + mid_name if prefix else mid_name
+                tmp_obj["name"] = new_name
+            return tmp_obj["name"], old_name
+    return None, None
 
 
 def update_application_profile(profile_name, pki_profile_ref, tenant_ref, name,
@@ -1372,8 +1381,8 @@ def write_status_report_and_pivot_table_in_xlsx(row_list, output_dir,
     master_writer.save()
 
 
-def update_skip_duplicates(obj, obj_list, obj_type, merge_profile_mapping,
-                           name):
+def update_skip_duplicates(obj, obj_list, obj_type, merge_object_mapping,
+                           name, ent_type, prefix):
     """
     Merge duplicate profiles
     :param obj: Source object to find duplicates for
@@ -1385,11 +1394,14 @@ def update_skip_duplicates(obj, obj_list, obj_type, merge_profile_mapping,
     :return:
     """
     dup_of = None
-    dup_of = check_for_duplicates(obj, obj_list)
-    merge_profile_mapping[obj_type].update({name: name})
+    merge_object_mapping[obj_type].update({name: name})
+    dup_of, old_name = check_for_duplicates(obj, obj_list, obj_type,
+                                   merge_object_mapping, ent_type, prefix)
     if dup_of:
         # Update value of ssl profile with merged profile
-        merge_profile_mapping[obj_type].update({name: dup_of})
+        if old_name in merge_object_mapping[obj_type].keys():
+            merge_object_mapping[obj_type].update({old_name: dup_of})
+        merge_object_mapping[obj_type].update({name: dup_of})
         return True
     return False
 
@@ -1499,4 +1511,8 @@ def cleanup_dupof(avi_config):
 def remove_dup_key(obj_list):
     for obj in obj_list:
         obj.pop('dup_of', None)
+
+
+def update_profile_ref(avi_obj, merge_obj_list):
+    pass
 

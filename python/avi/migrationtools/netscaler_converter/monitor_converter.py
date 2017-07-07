@@ -13,12 +13,12 @@ LOG = logging.getLogger(__name__)
 # Define Dict of merge_object_mapping to update the merged monitor, profile
 # name of ssl_profile, application_profile, network_profile etc
 merge_object_mapping = {
-    'ssl_profile': {},
-    'app_profile': {},
-    'network_profile': {},
-    'app_persist_profile': {},
-    'pki_profile': {},
-    'health_monitor': {}
+    'ssl_profile': {'no': 0},
+    'app_profile': {'no': 0},
+    'network_profile': {'no': 0},
+    'app_persist_profile': {'no': 0},
+    'pki_profile': {'no': 0},
+    'health_monitor': {'no': 0}
 }
 
 
@@ -104,7 +104,8 @@ class MonitorConverter(object):
                 # monitor_merge_count
                 dup_of = ns_util.update_skip_duplicates(
                     avi_monitor, avi_config['HealthMonitor'], 'health_monitor',
-                    merge_object_mapping, avi_monitor['name'])
+                    merge_object_mapping, avi_monitor['name'], ns_monitor_type,
+                    self.prefix)
                 if dup_of:
                     self.monitor_merge_count += 1
                 else:

@@ -182,9 +182,9 @@ class ProfileConverter(object):
                     # application profile then skipped this application
                     # profile and increment of count of
                     # application_merge_count
-                    dup_of = ns_util.update_skip_duplicates(
-                        app_profile, avi_config['ApplicationProfile'],
-                        'app_profile', merge_object_mapping, key)
+                    dup_of = ns_util.update_skip_duplicates(app_profile,
+                                avi_config['ApplicationProfile'], 'app_profile',
+                                merge_object_mapping, key, 'HTTP', self.prefix)
                     if dup_of:
                         app_merge_count['count'] += 1
                     else:
@@ -217,9 +217,9 @@ class ProfileConverter(object):
                     # network profile then skipped this application
                     # profile and increment of count of
                     # network_merge_count
-                    dup_of = ns_util.update_skip_duplicates(
-                        net_profile, avi_config['NetworkProfile'],
-                        'network_profile', merge_object_mapping, key)
+                    dup_of = ns_util.update_skip_duplicates(net_profile,
+                            avi_config['NetworkProfile'], 'network_profile',
+                            merge_object_mapping, key, 'TCP', self.prefix)
                     if dup_of:
                         self.network_merge_count += 1
                     else:
@@ -244,9 +244,10 @@ class ProfileConverter(object):
                     # Check pki profile is duplicate of other pki profile then
                     # skipped this pki profile and increment of count of
                     # pki_merge_count
-                    dup_of = ns_util.update_skip_duplicates(
-                        obj['pki'], avi_config['PKIProfile'],
-                        'pki_profile', merge_object_mapping, obj['pki']['name'])
+                    dup_of = ns_util.update_skip_duplicates(obj['pki'],
+                              avi_config['PKIProfile'], 'pki_profile',
+                              merge_object_mapping, obj['pki']['name'], None,
+                                                            self.prefix)
                     if dup_of:
                         self.pki_merge_count += 1
                     else:
@@ -347,9 +348,10 @@ class ProfileConverter(object):
                     # Check pki profile is duplicate of other pki profile then
                     # skipped this pki profile and increment of count of
                     # pki_merge_count
-                    dup_of = ns_util.update_skip_duplicates(
-                        obj['pki'], avi_config['PKIProfile'],
-                        'pki_profile', merge_object_mapping, obj['pki']['name'])
+                    dup_of = ns_util.update_skip_duplicates(obj['pki'],
+                                avi_config['PKIProfile'], 'pki_profile',
+                                merge_object_mapping, obj['pki']['name'], None,
+                                                            self.prefix)
                     if dup_of:
                         self.pki_merge_count += 1
                     else:
@@ -365,7 +367,7 @@ class ProfileConverter(object):
                     ssl_profile_name = self.prefix + '-' + ssl_profile_name
                 dup_of = ns_util.update_skip_duplicates(
                     ssl_profile, avi_config['SSLProfile'], 'ssl_profile',
-                    merge_object_mapping, ssl_profile_name)
+                    merge_object_mapping, ssl_profile_name, None, self.prefix)
                 if dup_of:
                     self.ssl_merge_count += 1
                 else:

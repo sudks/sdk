@@ -283,7 +283,8 @@ class CsvsConverter(object):
                                 dup_of = ns_util.update_skip_duplicates(
                                     app_profile_with_pki_profile, avi_config[
                                     'ApplicationProfile'], 'app_profile',
-                                    merge_object_mapping, app_profile_name)
+                                    merge_object_mapping, app_profile_name,
+                                    'HTTP', self.prefix)
                                 if dup_of:
                                     app_merge_count['count'] += 1
                                     app_profile_name = \
@@ -516,7 +517,7 @@ class CsvsConverter(object):
                 cs_vs['line_no'], ns_add_cs_vserver_command,
                 key, ns_add_cs_vserver_complete_command, conv_status, vs_obj)
             LOG.debug("Context Switch VS conversion completed for: %s" % key)
-
+        print merge_object_mapping
         vs_list = [obj for obj in lbvs_avi_conf if obj not in lb_vs_mapped]
         vs_list += cs_vs_list
         avi_config['VirtualService'] = vs_list

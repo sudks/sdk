@@ -391,11 +391,14 @@ class LbvsConverter(object):
                         ns_util.convert_persistance_prof(lb_vs, profile_name,
                                                          self.tenant_ref)
                     persist_profile_name = persist_profile['name']
+                    if persist_profile_name == \
+                            'normtest_443_lbv-persistance-profile':
+                        print 'hi'
                     if self.object_merge_check:
                         dup_of = ns_util.update_skip_duplicates(persist_profile,
                                 avi_config['ApplicationPersistenceProfile'],
                             'app_persist_profile', merge_object_mapping,
-                                                        persist_profile_name)
+                            persist_profile_name, persistenceType, self.prefix)
                         if dup_of:
                             app_per_merge_count['count'] += 1
                             persist_profile_name = merge_object_mapping[
@@ -512,7 +515,7 @@ class LbvsConverter(object):
                                         app_profile_with_pki_profile,
                                         avi_config['ApplicationProfile'],
                                         'app_profile', merge_object_mapping,
-                                        app_profile_name)
+                                        app_profile_name, 'HTTP', self.prefix)
                                     if dup_of:
                                         app_merge_count['count'] += 1
                                         app_profile_name = \
