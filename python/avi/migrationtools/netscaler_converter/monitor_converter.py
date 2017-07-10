@@ -68,7 +68,6 @@ class MonitorConverter(object):
         netscalar_command = 'add lb monitor'
         LOG.debug("Conversion started for Health Monitors")
         ns_monitors = ns_config.get('add lb monitor', {})
-        avi_config['HealthMonitor'] = []
         for name in ns_monitors.keys():
             ns_monitor = ns_monitors.get(name)
             ns_monitor_complete_command = \

@@ -65,19 +65,21 @@ def convert(meta, ns_config_dict, tenant_name, cloud_name, version, output_dir,
             with open(profile_path) as data:
                 prof_data = json.load(data)
                 avi_config['ApplicationProfile'] = \
-                    prof_data.get('ApplicationProfile',[])
+                    prof_data.get('ApplicationProfile', [])
                 avi_config['NetworkProfile'] = prof_data.get(
-                    'NetworkProfile',[])
-                avi_config["SSLProfile"] = prof_data.get('SSLProfile',[])
-                avi_config['PKIProfile'] = prof_data.get('PKIProfile',[])
+                    'NetworkProfile', [])
+                avi_config["SSLProfile"] = prof_data.get('SSLProfile', [])
+                avi_config['PKIProfile'] = prof_data.get('PKIProfile', [])
                 avi_config['ApplicationPersistenceProfile'] = \
-                    prof_data.get('ApplicationPersistenceProfile',[])
+                    prof_data.get('ApplicationPersistenceProfile', [])
+                avi_config['HealthMonitor'] = prof_data.get('HealthMonitor', [])
         else:
             avi_config['ApplicationProfile'] = []
             avi_config['NetworkProfile'] = []
             avi_config["SSLProfile"] = []
             avi_config['PKIProfile'] = []
             avi_config['ApplicationPersistenceProfile'] = []
+            avi_config['HealthMonitor'] = []
 
         monitor_converter = MonitorConverter(
             tenant_name, cloud_name, tenant_ref, cloud_ref, user_ignore,

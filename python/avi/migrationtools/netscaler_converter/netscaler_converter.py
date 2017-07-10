@@ -51,8 +51,8 @@ class NetscalerConverter(AviConverter):
         # Added not in use flag
         self.not_in_use = args.not_in_use
         # Added args for baseline profile json file
-        #self.profile_path = args.baseline_profile
-        self.profile_path = None
+        self.profile_path = args.baseline_profile
+
 
     def init_logger_path(self):
         LOG.setLevel(logging.DEBUG)
@@ -233,8 +233,8 @@ if __name__ == "__main__":
                         help='Flag for skipping not in use object',
                         action="store_true")
     # Added args for baseline profile json file
-    #parser.add_argument('--baseline_profile', help='asolute path for json '
-                                    #'file containing baseline  profiles')
+    parser.add_argument('--baseline_profile', help='asolute path for json '
+                                    'file containing baseline profiles')
 
 
     args = parser.parse_args()
