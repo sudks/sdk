@@ -15,12 +15,13 @@ from avi.migrationtools.netscaler_converter.csvs_converter import \
 from avi.migrationtools.netscaler_converter import ns_util
 from avi.migrationtools.netscaler_converter.profile_converter import \
     ProfileConverter, app_merge_count
+from avi.migrationtools.avi_converter import AviConverter
 
 
 LOG = logging.getLogger(__name__)
 
 
-def convert(ns_config_dict, tenant_name, cloud_name, version, output_dir,
+def convert(meta, ns_config_dict, tenant_name, cloud_name, version, output_dir,
             input_dir, skipped_cmds, vs_state, object_merge_check,report_name,
             prefix, profile_path, key_passphrase=None, user_ignore={}):
     """
@@ -50,43 +51,9 @@ def convert(ns_config_dict, tenant_name, cloud_name, version, output_dir,
     tenant_ref = ns_util.get_object_ref(tenant_name, 'tenant')
     cloud_ref = ns_util.get_object_ref(cloud_name, 'cloud')
     try:
-        avi_config = {
-            "META": {
-                "supported_migrations": {
-                    "versions": [
-                        "14_2",
-                        "15_1",
-                        "15_1_1",
-                        "15_2",
-                        "15_2_3",
-                        "15_3",
-                        "16_1",
-                        "16_1_1",
-                        "16_1_2",
-                        "16_1_3",
-                        "16_2",
-                        "16_2_1",
-                        "16_2_2",
-                        "16_2_3",
-                        "16_3",
-                        "16_3_1",
-                        "16_3_2",
-                        "16_3_4",
-                        "16_4_1",
-                        "16_4_2"
-                    ]
-                },
-                "version": {
-                    "Product": "controller",
-                    "Version": version,
-                    "min_version": 15.2,
-                    "ProductName": "Avi Cloud Controller"
-                },
-                "use_tenant": tenant_name,
-                "upgrade_mode": False
-
-            }
-        }
+        # call meta from super class
+        avi_config = dict()
+        avi_config['META'] = meta  # avi_obj.meta(tenant_name, version)
 
         if parse_version(version) >= parse_version('17.1'):
             avi_config['META']['supported_migrations']['versions'].append(

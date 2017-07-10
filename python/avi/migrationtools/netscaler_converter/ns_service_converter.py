@@ -594,6 +594,14 @@ class ServiceConverter(object):
                     # Added prefix for objects
                     if self.prefix:
                         monitor_name = self.prefix + '-' + monitor_name
+                    monitor = [monitor for monitor in avi_config['HealthMonitor']
+                            if monitor['name'] == monitor_name]
+                    if not monitor:
+                        monitor_name = '%s-%s' %(monitor_name, 'dummy')
+                        monitor = [monitor for monitor in
+                                   avi_config['HealthMonitor']
+                                   if monitor['name'] == monitor_name]
+                    if not monitor:
                     if self.object_merge_check:
                         # Get the merge health monitor name
                         monitor_name = merge_object_mapping[
