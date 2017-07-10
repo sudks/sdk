@@ -594,6 +594,10 @@ class ServiceConverter(object):
                     # Added prefix for objects
                     if self.prefix:
                         monitor_name = self.prefix + '-' + monitor_name
+                    if self.object_merge_check:
+                        # Get the merge health monitor name
+                        monitor_name = merge_object_mapping[
+                            'health_monitor'].get(monitor_name, None)
                     monitor = [monitor for monitor in avi_config['HealthMonitor']
                             if monitor['name'] == monitor_name]
                     if not monitor:
@@ -601,13 +605,8 @@ class ServiceConverter(object):
                         monitor = [monitor for monitor in
                                    avi_config['HealthMonitor']
                                    if monitor['name'] == monitor_name]
+
                     if not monitor:
-                    if self.object_merge_check:
-                        # Get the merge health monitor name
-                        monitor_name = merge_object_mapping[
-                            'health_monitor'].get(monitor_name, None)
-                    if not [monitor for monitor in avi_config['HealthMonitor']
-                            if monitor['name'] == monitor_name]:
                         skipped_status = 'External Monitor : Not supported ' \
                                          'Health monitor %s' % \
                                          full_bind_service_command

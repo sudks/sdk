@@ -416,14 +416,9 @@ class CsvsConverter(object):
                             policy['http_request_policy']['rules'] = [
                                 redirect_rule]
                         else:
-<<<<<<< HEAD
                             policy ={
                                 'name': "vs-%s-HTTP-Policy-Set"
                                         % updated_vs_name,
-=======
-                            policy = {
-                                'name': "vs-%s-HTTP-Policy-Set" % vs_name,
->>>>>>> 37cdc9b81b5f44622c1061305968f2995b0f29cf
                                 'tenant_ref': self.tenant_ref,
                                 'http_request_policy': {
                                     'rules': [redirect_rule]

@@ -401,7 +401,7 @@ class LbvsConverter(object):
                         dup_of = ns_util.update_skip_duplicates(persist_profile,
                                 avi_config['ApplicationPersistenceProfile'],
                             'app_persist_profile', merge_object_mapping,
-                            persist_profile_name, persistenceType, self.prefix)
+                            persist_profile_name, persistence_type, self.prefix)
                         if dup_of:
                             app_per_merge_count['count'] += 1
                             persist_profile_name = merge_object_mapping[
@@ -414,13 +414,8 @@ class LbvsConverter(object):
                         avi_config['ApplicationPersistenceProfile'].append(
                             persist_profile)
                     self.update_pool_for_persist(avi_config, pool_group,
-<<<<<<< HEAD
                                                  persist_profile_name)
-                elif not persistenceType == 'NONE':
-=======
-                                                 profile_name)
                 elif not persistence_type == 'NONE':
->>>>>>> 37cdc9b81b5f44622c1061305968f2995b0f29cf
                     LOG.warning('Persistance type %s not supported by Avi' %
                                 persistence_type)
                 ntwk_prof = lb_vs.get('tcpProfileName', None)
