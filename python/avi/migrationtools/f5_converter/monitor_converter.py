@@ -52,7 +52,6 @@ class MonitorConfigConv(object):
 
     def convert(self, f5_config, avi_config, input_dir, user_ignore, tenant):
         LOG.debug("Converting health monitors")
-        avi_config["HealthMonitor"] = []
         converted_objs = []
         m_user_ignore = user_ignore.get('monitor', {})
         monitor_config = f5_config.pop("monitor", {})

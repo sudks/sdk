@@ -66,8 +66,8 @@ class F5Converter(AviConverter):
         # Added not in use flag
         self.not_in_use = args.not_in_use
         # Added args for baseline profile json file to be changed
-        #self.profile_path = args.baseline_profile
-        self.profile_path = None
+        self.profile_path = args.baseline_profile
+
 
     def print_pip_and_controller_version(self):
         # Added input parameters to log file
@@ -353,8 +353,8 @@ if __name__ == "__main__":
                         help='Flag for skipping not in use object',
                         action="store_true")
     # Added args for baseline profile json file
-    #parser.add_argument('--baseline_profile', help='asolute path for json '
-                                    #'file containing baseline profiles')
+    parser.add_argument('--baseline_profile', help='asolute path for json '
+                                    'file containing baseline profiles')
 
 
     args = parser.parse_args()

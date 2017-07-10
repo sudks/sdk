@@ -55,12 +55,15 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
                 avi_config_dict['PKIProfile'] = prof_data.get('PKIProfile',[])
                 avi_config_dict['ApplicationPersistenceProfile'] = \
                     prof_data.get('ApplicationPersistenceProfile',[])
+                avi_config_dict['HealthMonitor'] = \
+                    prof_data.get('HealthMonitor', [])
         else:
             avi_config_dict['ApplicationProfile'] = []
             avi_config_dict['NetworkProfile'] = []
             avi_config_dict["SSLProfile"] = []
             avi_config_dict['PKIProfile'] = []
             avi_config_dict['ApplicationPersistenceProfile'] = []
+            avi_config_dict['HealthMonitor'] = []
 
         mon_conv = MonitorConfigConv.get_instance(
             version, f5_attributes, prefix, object_merge_check)
