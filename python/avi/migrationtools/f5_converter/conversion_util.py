@@ -105,6 +105,10 @@ def check_for_duplicates(src_obj, obj_list):
         del tmp_cp["name"]
         if "description" in tmp_cp:
             del tmp_cp["description"]
+        if 'url' in tmp_cp:
+            del tmp_cp['url']
+        if 'uuid' in tmp_cp:
+            del tmp_cp['uuid']
         dup_lst = tmp_cp.pop("dup_of", [])
         if cmp(src_cp, tmp_cp) == 0:
             dup_lst.append(src_obj["name"])
