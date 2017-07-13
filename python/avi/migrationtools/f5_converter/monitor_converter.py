@@ -154,7 +154,7 @@ class MonitorConfigConv(object):
         LOG.info('Added new SSL key and certificate for %s' % name)
 
     def convert(self, f5_config, avi_config, input_dir, user_ignore, tenant,
-                cloud_name, controller_version):
+                cloud_name, controller_version, merge_object_mapping):
         LOG.debug("Converting health monitors")
         converted_objs = []
         m_user_ignore = user_ignore.get('monitor', {})

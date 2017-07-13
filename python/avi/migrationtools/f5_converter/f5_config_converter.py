@@ -21,7 +21,7 @@ merge_object_mapping = {
     'ssl_profile': {'no': 0},
     'app_profile': {'no': 0},
     'network_profile': {'no': 0},
-    'app_persist_profile': {'no': 0},
+    'app_per_profile': {'no': 0},
     'pki_profile': {'no': 0},
     'health_monitor': {'no': 0}
 }
@@ -76,14 +76,15 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
 
         profile_conv = ProfileConfigConv.get_instance(
             version, f5_attributes, object_merge_check, prefix)
-        profile_conv.convert(f5_config, avi_config_dict, input_dir,
-                             user_ignore, tenant, cloud_name)
+        profile_conv.convert(f5_config, avi_config_dict, input_dir, user_ignore,
+                             tenant, cloud_name, merge_object_mapping)
 
         # Added ssl profile merge flag.
         mon_conv = MonitorConfigConv.get_instance(
             version, f5_attributes, prefix, object_merge_check)
         mon_conv.convert(f5_config, avi_config_dict, input_dir, user_ignore,
-                         tenant, cloud_name, controller_version)
+                         tenant, cloud_name, controller_version,
+                         merge_object_mapping)
 
         pool_conv = PoolConfigConv.get_instance(version, f5_attributes, prefix)
         pool_conv.convert(f5_config, avi_config_dict, user_ignore, tenant,
@@ -91,12 +92,12 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
 
         persist_conv = PersistenceConfigConv.get_instance(
             version, f5_attributes, prefix, object_merge_check)
-        persist_conv.convert(f5_config, avi_config_dict, user_ignore, tenant)
+        persist_conv.convert(f5_config, avi_config_dict, user_ignore, tenant,
+                             merge_object_mapping)
 
         vs_conv = VSConfigConv.get_instance(version, f5_attributes, prefix, con_snatpool)
         vs_conv.convert(f5_config, avi_config_dict, vs_state, user_ignore,
                         tenant, cloud_name, controller_version)
-
         conv_utils.net_to_static_route(f5_config, avi_config_dict)
         conv_utils.cleanup_config(avi_config_dict)
         conv_utils.add_tenants(avi_config_dict)
