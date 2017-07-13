@@ -51,7 +51,7 @@ class MonitorConfigConv(object):
         pass
 
     def convert(self, f5_config, avi_config, input_dir, user_ignore, tenant,
-                merge_object_mapping):
+                merge_object_mapping, sys_dict):
         LOG.debug("Converting health monitors")
         converted_objs = []
         m_user_ignore = user_ignore.get('monitor', {})
@@ -91,7 +91,7 @@ class MonitorConfigConv(object):
                     conv_utils.update_skip_duplicates(avi_monitor,
                         avi_config['HealthMonitor'], 'health_monitor',
                             converted_objs, name, None, merge_object_mapping,
-                                                      monitor_type, self.prefix)
+                                            monitor_type, self.prefix, sys_dict)
                     self.mon_count += 1
                 else:
                     avi_config["HealthMonitor"].append(avi_monitor)
