@@ -1771,10 +1771,6 @@ def net_to_static_route(f5_config, avi_config):
                         obj['static_routes'] = [static_route]
 
 
-def clear_url_uuid(avi_config_dict):
-    for value in avi_config_dict.values():
-        for v in value:
-            v.pop('url', [])
-            v.pop('uuid', [])
+
 
 
