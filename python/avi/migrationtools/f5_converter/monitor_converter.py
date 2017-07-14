@@ -91,7 +91,8 @@ class MonitorConfigConv(object):
                     conv_utils.update_skip_duplicates(avi_monitor,
                         avi_config['HealthMonitor'], 'health_monitor',
                             converted_objs, name, None, merge_object_mapping,
-                                            monitor_type, self.prefix, sys_dict)
+                                            monitor_type, self.prefix,
+                                                      sys_dict['HealthMonitor'])
                     self.mon_count += 1
                 else:
                     avi_config["HealthMonitor"].append(avi_monitor)

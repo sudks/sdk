@@ -42,7 +42,7 @@ class PersistenceConfigConv(object):
         pass
 
     def convert(self, f5_config, avi_config, user_ignore, tenant_ref,
-                merge_object_mapping):
+                merge_object_mapping, sys_dict):
         avi_config['hash_algorithm'] = []
         converted_objs = []
         f5_persistence_dict = f5_config.get('persistence')
@@ -104,7 +104,7 @@ class PersistenceConfigConv(object):
                                     avi_config['ApplicationPersistenceProfile'],
                                     'app_per_profile', converted_objs, name,
                                     None, merge_object_mapping, persist_mode,
-                                                      self.prefix)
+                         self.prefix, sys_dict['ApplicationPersistenceProfile'])
                     self.app_per_count += 1
                 else:
                     avi_config["ApplicationPersistenceProfile"].append(
