@@ -78,7 +78,7 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
         profile_conv = ProfileConfigConv.get_instance(
             version, f5_attributes, object_merge_check, prefix)
         profile_conv.convert(f5_config, avi_config_dict, input_dir, user_ignore,
-                             tenant, cloud_name, merge_object_mapping)
+                             tenant, cloud_name, merge_object_mapping, sys_dict)
 
         # Added ssl profile merge flag.
         mon_conv = MonitorConfigConv.get_instance(
@@ -94,11 +94,13 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
         persist_conv = PersistenceConfigConv.get_instance(
             version, f5_attributes, prefix, object_merge_check)
         persist_conv.convert(f5_config, avi_config_dict, user_ignore, tenant,
-                             merge_object_mapping)
+                             merge_object_mapping, sys_dict)
 
         vs_conv = VSConfigConv.get_instance(version, f5_attributes, prefix, con_snatpool)
         vs_conv.convert(f5_config, avi_config_dict, vs_state, user_ignore,
-                        tenant, cloud_name, controller_version)
+                        tenant, cloud_name, controller_version,
+                        merge_object_mapping, sys_dict)
+        
         conv_utils.net_to_static_route(f5_config, avi_config_dict)
         conv_utils.cleanup_config(avi_config_dict)
         conv_utils.add_tenants(avi_config_dict)

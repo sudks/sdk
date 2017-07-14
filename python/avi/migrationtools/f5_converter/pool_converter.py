@@ -89,7 +89,7 @@ class PoolConfigConv(object):
         f5_config.pop('pool', {})
 
     def get_monitor_refs(self, monitor_names, monitor_config_list, pool_name,
-                         tenant_ref, merge_object_mapping, sys_dict):
+                         tenant_ref, merge_object_mapping, sys_mon):
         skipped_monitors = []
         monitors = monitor_names.split(" ")
         monitor_refs = []
@@ -103,10 +103,11 @@ class PoolConfigConv(object):
                 monitor = '%s-%s' % (self.prefix, monitor)
 
             tenant, monitor = conv_utils.get_tenant_ref(monitor)
-            monitor_obj = [ob for ob in sys_dict if ob['name'] ==
-                           merge_object_mapping[monitor]] or [obj for obj in
-                           monitor_config_list if (obj["name"] == monitor or
-                                            monitor in obj.get("dup_of", []))]
+            monitor_obj = [ob for ob in sys_mon if ob['name'] ==
+                          merge_object_mapping['health_monitor'].get(monitor)] \
+                          or [obj for obj in monitor_config_list if (
+                          obj["name"] == monitor or monitor in
+                          obj.get("dup_of", []))]
             if monitor_obj:
                 tenant = conv_utils.get_name_from_ref(
                     monitor_obj[0]['tenant_ref'])
@@ -314,7 +315,7 @@ class PoolConfigConvV11(PoolConfigConv):
             skipped_monitors, monitor_refs = super(
                 PoolConfigConvV11, self).get_monitor_refs(
                 monitor_names, monitor_config, pool_name, tenant,
-                merge_object_mapping, sys_dict)
+                merge_object_mapping, sys_dict['HealthMonitor'])
             pool_obj["health_monitor_refs"] = monitor_refs
         # Adding vrf context ref to pool obj
         vrf_config = avi_config['VrfContext']
@@ -505,7 +506,7 @@ class PoolConfigConvV10(PoolConfigConv):
             skipped_monitors, monitor_refs = super(
                 PoolConfigConvV10, self).get_monitor_refs(
                 monitor_names, monitor_config, pool_name, tenant_ref,
-                merge_object_mapping, sys_dict)
+                merge_object_mapping, sys_dict['HealthMonitor'])
             pool_obj["health_monitor_refs"] = monitor_refs
         # Adding vrf context ref to pool obj
         vrf_config = avi_config['VrfContext']
