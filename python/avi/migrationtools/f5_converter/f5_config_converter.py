@@ -74,7 +74,7 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
         avi_config_dict['PKIProfile'] = []
         avi_config_dict['ApplicationPersistenceProfile'] = []
         avi_config_dict['HealthMonitor'] = []
-        #conv_utils.clear_url_uuid(avi_config_dict)
+
         mon_conv = MonitorConfigConv.get_instance(
             version, f5_attributes, prefix, object_merge_check)
         mon_conv.convert(f5_config, avi_config_dict, input_dir, user_ignore,
