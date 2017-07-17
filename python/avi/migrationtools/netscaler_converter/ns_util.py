@@ -604,7 +604,7 @@ def clone_pool_group(pg_name, cloned_for, avi_config, tenant_name, cloud_name,
     return None
 
 
-def remove_http_mon_from_pool(avi_config, pool):
+def remove_http_mon_from_pool(avi_config, pool, sysdict):
     """
     This function is used for removing http type from health monitor for https
     vs.
@@ -615,7 +615,8 @@ def remove_http_mon_from_pool(avi_config, pool):
     if pool:
         hm_refs = copy.deepcopy(pool['health_monitor_refs'])
         for hm_ref in hm_refs:
-            hm = [h for h in avi_config['HealthMonitor'] if h['name'] == hm_ref]
+            hm = [h for h in (sysdict['HealthMonitor'] + avi_config[
+                 'HealthMonitor']) if h['name'] == hm_ref]
             if hm and hm[0]['type'] == 'HEALTH_MONITOR_HTTP':
                 pool['health_monitor_refs'].remove(hm_ref)
                 LOG.warning('Skipping %s this reference from %s pool because '
@@ -678,26 +679,33 @@ def create_self_signed_cert():
 
 
 def check_for_duplicates(src_obj, obj_list, obj_type, merge_object_mapping,
-                         ent_type, prefix):
+                         ent_type, prefix, syslist):
     """
     Checks for duplicate objects except name and description values
     :param src_obj: Object to be checked for duplicate
     :param obj_list: List of oll objects to search in
     :return: Name of object for which given object is duplicate of
     """
+    src_cp = copy.deepcopy(src_obj)
+    del src_cp["name"]
+    if "description" in src_cp:
+        del src_cp["description"]
+    for obj in syslist:
+        ob_cp = copy.deepcopy(obj)
+        del ob_cp["name"]
+        if "description" in ob_cp:
+            del ob_cp["description"]
+        if 'url' in ob_cp:
+            del ob_cp['url']
+        if 'uuid' in ob_cp:
+            del ob_cp['uuid']
+        if cmp(src_cp, ob_cp) == 0:
+            return obj["name"], src_obj['name']
     for tmp_obj in obj_list:
-        src_cp = copy.deepcopy(src_obj)
         tmp_cp = copy.deepcopy(tmp_obj)
-        del src_cp["name"]
-        if "description" in src_cp:
-            del src_cp["description"]
         del tmp_cp["name"]
         if "description" in tmp_cp:
             del tmp_cp["description"]
-        if 'url' in tmp_cp:
-            del tmp_cp['url']
-        if 'uuid' in tmp_cp:
-            del tmp_cp['uuid']
         dup_lst = tmp_cp.pop("dup_of", [tmp_obj["name"]])
         if cmp(src_cp, tmp_cp) == 0:
             dup_lst.append(src_obj["name"])
@@ -716,7 +724,7 @@ def check_for_duplicates(src_obj, obj_list, obj_type, merge_object_mapping,
 
 
 def update_application_profile(profile_name, pki_profile_ref, tenant_ref, name,
-                               avi_config):
+                               avi_config, sysdict):
     """
     This functions defines to update application profile with pki profile if
     application profile exist if not create new http profile with pki profile
@@ -730,8 +738,9 @@ def update_application_profile(profile_name, pki_profile_ref, tenant_ref, name,
 
     try:
         if profile_name:
-            app_profile = [p for p in avi_config['ApplicationProfile']
-                       if p['name'] == profile_name]
+            app_profile = [p for p in (sysdict['ApplicationProfile'] +
+                          avi_config['ApplicationProfile']) if p['name'] ==
+                          profile_name]
             if app_profile:
                 app_profile[0]["http_profile"]['pki_profile_ref'] = \
                     pki_profile_ref
@@ -749,12 +758,12 @@ def update_application_profile(profile_name, pki_profile_ref, tenant_ref, name,
             http_profile['websockets_enabled'] = False
             http_profile['pki_profile_ref'] = pki_profile_ref
             app_profile["http_profile"] = http_profile
-        LOG.debug("Conversion completed successfully for httpProfile: %s" %
-                  app_profile['name'])
+            avi_config['ApplicationProfile'].append(app_profile)
+            LOG.debug("Conversion completed successfully for httpProfile: %s" %
+                      app_profile['name'])
+            return app_profile['name']
     except:
         LOG.error("Error in convertion of httpProfile", exc_info=True)
-
-    return app_profile
 
 
 def convert_persistance_prof(vs, name, tenant_ref):
@@ -1372,7 +1381,7 @@ def write_status_report_and_pivot_table_in_xlsx(row_list, output_dir,
 
 
 def update_skip_duplicates(obj, obj_list, obj_type, merge_object_mapping,
-                           name, ent_type, prefix):
+                           name, ent_type, prefix, syslist):
     """
     Merge duplicate profiles
     :param obj: Source object to find duplicates for
@@ -1386,8 +1395,10 @@ def update_skip_duplicates(obj, obj_list, obj_type, merge_object_mapping,
     dup_of = None
     merge_object_mapping[obj_type].update({name: name})
     dup_of, old_name = check_for_duplicates(obj, obj_list, obj_type,
-                                   merge_object_mapping, ent_type, prefix)
+                                   merge_object_mapping, ent_type, prefix,
+                                            syslist)
     if dup_of:
+        LOG.info("Duplicate profiles: %s merged in %s" % (obj['name'], dup_of))
         # Update value of ssl profile with merged profile
         if old_name in merge_object_mapping[obj_type].keys():
             merge_object_mapping[obj_type].update({old_name: dup_of})

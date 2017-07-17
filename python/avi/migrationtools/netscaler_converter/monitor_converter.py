@@ -57,7 +57,7 @@ class MonitorConverter(object):
         self.object_merge_check = object_merge_check
         self.monitor_merge_count = 0
 
-    def convert(self, ns_config, avi_config, input_dir):
+    def convert(self, ns_config, avi_config, input_dir, sysdict):
         """
         This functions defines that convert health monitor
         :param ns_config: Dict of netscalar commands
@@ -118,7 +118,7 @@ class MonitorConverter(object):
                 dup_of = ns_util.update_skip_duplicates(
                     avi_monitor, avi_config['HealthMonitor'], 'health_monitor',
                     merge_object_mapping, avi_monitor['name'], ns_monitor_type,
-                    self.prefix)
+                    self.prefix, sysdict['HealthMonitor'])
                 if dup_of:
                     self.monitor_merge_count += 1
                 else:
