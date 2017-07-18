@@ -1791,6 +1791,3 @@ def update_monitor_ssl_ref(avi_dict, merge_obj_dict, sysdict):
 
 
 
-
-
-
