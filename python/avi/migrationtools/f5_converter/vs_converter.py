@@ -82,8 +82,11 @@ class VSConfigConv(object):
         for prof in profiles:
             if prof in avi_config.get('OneConnect', []):
                 oc_prof = True
+        enable_ssl = False
+        if ssl_vs:
+            enable_ssl = True
         app_prof, f_host, realm, policy_set = conv_utils.get_vs_app_profiles(
-            profiles, avi_config, tenant, self.prefix, oc_prof,
+            profiles, avi_config, tenant, self.prefix, oc_prof, enable_ssl,
             merge_object_mapping, sys_dict)
 
         if not app_prof:
@@ -130,10 +133,6 @@ class VSConfigConv(object):
                 app_prof[0] = conv_utils.get_object_ref(app_name,
                      'applicationprofile', tenant=conv_utils.get_name_from_ref(
                                                  app_prof_cmd[0]['tenant_ref']))
-
-        enable_ssl = False
-        if ssl_vs:
-            enable_ssl = True
         destination = f5_vs.get("destination", None)
         d_tenant, destination = conv_utils.get_tenant_ref(destination)
         # if destination is not present then skip vs.
@@ -159,20 +158,20 @@ class VSConfigConv(object):
                     conv_utils.add_ssl_to_pool_group(avi_config, pool_ref,
                                                      ssl_pool[0], tenant)
                     conv_utils.remove_http_mon_from_pool_group(
-                        avi_config, pool_ref, tenant)
+                        avi_config, pool_ref, tenant, sys_dict)
                 else:
                     conv_utils.add_ssl_to_pool(avi_config['Pool'], pool_ref,
                                                ssl_pool[0], tenant)
                     conv_utils.remove_http_mon_from_pool(
-                        avi_config, pool_ref, tenant)
+                        avi_config, pool_ref, tenant, sys_dict)
             else:
                 # TODO Remove this once controller support this scenario.
                 if is_pool_group:
                     conv_utils.remove_https_mon_from_pool_group(
-                        avi_config, pool_ref, tenant)
+                        avi_config, pool_ref, tenant, sys_dict)
                 else:
                     conv_utils.remove_https_mon_from_pool(
-                        avi_config, pool_ref, tenant)
+                        avi_config, pool_ref, tenant, sys_dict)
 
             persist_ref = self.get_persist_ref(f5_vs)
             if persist_ref:
@@ -380,8 +379,7 @@ class VSConfigConv(object):
         if vs_obj['application_profile_ref']:
             application_profile_obj = \
                 [obj for obj in (sys_dict['ApplicationProfile'] +
-                                        avi_config['ApplicationProfile'])
-                 if obj['name'] == app_name]
+                avi_config['ApplicationProfile']) if obj['name'] == app_name]
             if application_profile_obj and application_profile_obj[0]['type'] \
                     == 'APPLICATION_PROFILE_TYPE_L4':
                 if not 'pool_ref' and not 'pool_group_ref' in vs_obj:

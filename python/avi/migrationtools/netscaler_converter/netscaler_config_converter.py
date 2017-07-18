@@ -62,6 +62,13 @@ def convert(meta, ns_config_dict, tenant_name, cloud_name, version, output_dir,
         avi_config['META']['supported_migrations']['versions'].append(
             'current_version')
 
+        sys_dict['ApplicationProfile'] = []
+        sys_dict['NetworkProfile'] = []
+        sys_dict["SSLProfile"] = []
+        sys_dict['PKIProfile'] = []
+        sys_dict['ApplicationPersistenceProfile'] = []
+        sys_dict['HealthMonitor'] = []
+
         if profile_path and os.path.exists(profile_path):
             with open(profile_path) as data:
                 prof_data = json.load(data)
@@ -111,13 +118,12 @@ def convert(meta, ns_config_dict, tenant_name, cloud_name, version, output_dir,
         # Updating the reference for application persistence profile as we
         # are assigning reference at the time of profile creation
         ns_util.update_profile_ref('application_persistence_profile_ref',
-                                   tenant_name, avi_config['Pool'],
-                                   merge_object_mapping['app_persist_profile'])
+                avi_config['Pool'], merge_object_mapping['app_persist_profile'])
         # Updating the reference for application persistence profile as we
         # are assigning reference at the time of profile creation
         ns_util.update_profile_ref('application_profile_ref',
-                                   tenant_name, avi_config['VirtualService'],
-                                   merge_object_mapping['app_profile'])
+                avi_config['VirtualService'], merge_object_mapping[
+                                       'app_profile'])
         # Add status for skipped netscalar commands in CSV/report
         ns_util.update_status_for_skipped(skipped_cmds)
         # Add/update CSV/report

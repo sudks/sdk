@@ -389,7 +389,7 @@ def get_vs_ssl_profiles(profiles, avi_config, prefix, merge_object_mapping,
 
 
 def get_vs_app_profiles(profiles, avi_config, tenant_ref, prefix, oc_prof,
-                        merge_object_mapping, sys_dict):
+                        enable_ssl, merge_object_mapping, sys_dict):
     """
     Searches for profile refs in converted profile config if not found creates
     default profiles
@@ -456,7 +456,7 @@ def get_vs_app_profiles(profiles, avi_config, tenant_ref, prefix, oc_prof,
         if not_supported:
             LOG.warning('Profiles not supported by Avi : %s' % not_supported)
             return app_profile_refs, f_host, realm, policy_set
-        if oc_prof:
+        if oc_prof or enable_ssl:
             value = 'http'
         else:
             value = 'fastL4'
@@ -667,14 +667,14 @@ def clone_pool(pool_name, vs_name, avi_pool_list, tenant=None):
         return pool_ref
 
 
-def remove_https_mon_from_pool(avi_config, pool_ref, tenant):
+def remove_https_mon_from_pool(avi_config, pool_ref, tenant, sysdict):
     pool = [p for p in avi_config['Pool'] if p['name'] == pool_ref]
     if pool:
         hm_refs = pool[0].get('health_monitor_refs', [])
         for hm_ref in hm_refs:
-            hm = [h for h in avi_config['HealthMonitor'] if
-                  get_object_ref(h['name'], 'healthmonitor',
-                                 tenant=tenant) == hm_ref]
+            hm = [h for h in (sysdict['HealthMonitor'] + avi_config[
+                 'HealthMonitor']) if get_object_ref(h['name'], 'healthmonitor',
+                 tenant=tenant) == hm_ref]
             if hm and hm[0]['type'] == 'HEALTH_MONITOR_HTTPS':
                 pool[0]['health_monitor_refs'].remove(hm_ref)
                 LOG.warning(
@@ -683,14 +683,14 @@ def remove_https_mon_from_pool(avi_config, pool_ref, tenant):
                     % (hm_ref, pool_ref))
 
 
-def remove_http_mon_from_pool(avi_config, pool_ref, tenant):
+def remove_http_mon_from_pool(avi_config, pool_ref, tenant, sysdict):
     pool = [p for p in avi_config['Pool'] if p['name'] == pool_ref]
     if pool:
         hm_refs = pool[0].get('health_monitor_refs', [])
         for hm_ref in hm_refs:
-            hm = [h for h in avi_config['HealthMonitor'] if
-                  get_object_ref(h['name'], 'healthmonitor',
-                                 tenant=tenant) == hm_ref]
+            hm = [h for h in (sysdict['HealthMonitor'] + avi_config[
+                 'HealthMonitor']) if get_object_ref(h['name'], 'healthmonitor',
+                 tenant=tenant) == hm_ref]
 
             if hm and hm[0]['type'] == 'HEALTH_MONITOR_HTTP':
                 pool[0]['health_monitor_refs'].remove(hm_ref)
@@ -699,24 +699,25 @@ def remove_http_mon_from_pool(avi_config, pool_ref, tenant):
                             'profile.' % (hm_ref, pool_ref))
 
 
-def remove_https_mon_from_pool_group(avi_config, poolgroup_ref, tenant):
+def remove_https_mon_from_pool_group(avi_config, poolgroup_ref, tenant,
+                                     sysdict):
     poolgroup = [p for p in avi_config['PoolGroup'] if get_object_ref(
         p['name'], 'poolgroup', tenant=tenant) == poolgroup_ref]
     if poolgroup:
         pool_members = [p['pool_ref'] for p in poolgroup[0]['members']]
         for pool_ref in pool_members:
             pool_ref = get_name_from_ref(pool_ref)
-            remove_https_mon_from_pool(avi_config, pool_ref, tenant)
+            remove_https_mon_from_pool(avi_config, pool_ref, tenant, sysdict)
 
 
-def remove_http_mon_from_pool_group(avi_config, poolgroup_ref, tenant):
+def remove_http_mon_from_pool_group(avi_config, poolgroup_ref, tenant, sysdict):
     poolgroup = [p for p in avi_config['PoolGroup'] if get_object_ref(
         p['name'], 'poolgroup', tenant=tenant) == poolgroup_ref]
     if poolgroup:
         pool_members = [p['pool_ref'] for p in poolgroup[0]['members']]
         for pool_ref in pool_members:
             pool_name = get_name_from_ref(pool_ref)
-            remove_http_mon_from_pool(avi_config, pool_name, tenant)
+            remove_http_mon_from_pool(avi_config, pool_name, tenant, sysdict)
 
 
 def add_ssl_to_pool(avi_pool_list, pool_ref, pool_ssl_profiles, tenant='admin'):
@@ -1769,6 +1770,25 @@ def net_to_static_route(f5_config, avi_config):
                         obj['static_routes'].append(static_route)
                     else:
                         obj['static_routes'] = [static_route]
+
+
+def update_monitor_ssl_ref(avi_dict, merge_obj_dict, sysdict):
+    for obj in avi_dict['HealthMonitor']:
+        obj_ref = obj.get('https_monitor', {}).get('ssl_attributes', {}).get(
+                    'ssl_profile_ref')
+        if obj_ref:
+            name = get_name(obj_ref)
+            if name in merge_obj_dict['ssl_profile']:
+                updated_name = merge_obj_dict['ssl_profile'][name]
+                prof = [ob for ob in (sysdict['SSLProfile'] + avi_dict[
+                       'SSLProfile']) if ob['name'] == updated_name]
+                tenant = get_name(prof[0]['tenant_ref'])
+                type_cons = conv_const.OBJECT_TYPE_SSL_PROFILE
+                obj['https_monitor']['ssl_attributes']['ssl_profile_ref'] = \
+                                get_object_ref(updated_name, type_cons, tenant)
+
+
+
 
 
 

@@ -7,7 +7,8 @@ from avi.migrationtools.f5_converter.monitor_converter \
 from avi.migrationtools.f5_converter.persistence_converter \
     import PersistenceConfigConv
 from avi.migrationtools.f5_converter.pool_converter import PoolConfigConv
-from avi.migrationtools.f5_converter.profile_converter import ProfileConfigConv
+from avi.migrationtools.f5_converter.profile_converter import \
+    ProfileConfigConv, ssl_count
 from avi.migrationtools.f5_converter.vs_converter import VSConfigConv
 import os
 import json
@@ -54,6 +55,12 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
     try:
         # load the yaml file attribute in f5_attributes.
         f5_attributes = conv_const.init(version)
+        sys_dict['ApplicationProfile'] = []
+        sys_dict['NetworkProfile'] = []
+        sys_dict["SSLProfile"] = []
+        sys_dict['PKIProfile'] = []
+        sys_dict['ApplicationPersistenceProfile'] = []
+        sys_dict['HealthMonitor'] = []
         if profile_path and os.path.exists(profile_path):
             with open(profile_path) as data:
                 prof_data = json.load(data)
@@ -96,12 +103,16 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
         persist_conv.convert(f5_config, avi_config_dict, user_ignore, tenant,
                              merge_object_mapping, sys_dict)
 
-        vs_conv = VSConfigConv.get_instance(version, f5_attributes, prefix, con_snatpool)
+        vs_conv = VSConfigConv.get_instance(version, f5_attributes, prefix,
+                                            con_snatpool)
         vs_conv.convert(f5_config, avi_config_dict, vs_state, user_ignore,
                         tenant, cloud_name, controller_version,
                         merge_object_mapping, sys_dict)
-        
+
         conv_utils.net_to_static_route(f5_config, avi_config_dict)
+        # Updating the ssl profile ref for monitors with merged name
+        conv_utils.update_monitor_ssl_ref(avi_config_dict, merge_object_mapping,
+                                          sys_dict)
         conv_utils.cleanup_config(avi_config_dict)
         conv_utils.add_tenants(avi_config_dict)
 
@@ -141,12 +152,11 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
                 continue
             # Added code to print merged count.
             elif object_merge_check and key == 'SSLProfile':
-                mergedfile = len(avi_config_dict[key]) - \
-                             profile_conv.ssl_count
+                mergedfile = len(avi_config_dict[key]) - ssl_count['count']
                 profile_merged_message = \
                     'Total Objects of %s : %s (%s/%s profile merged)' % \
                     (key, len(avi_config_dict[key]), abs(mergedfile),
-                     profile_conv.ssl_count)
+                     ssl_count['count'])
                 LOG.info(profile_merged_message)
                 print profile_merged_message
                 continue

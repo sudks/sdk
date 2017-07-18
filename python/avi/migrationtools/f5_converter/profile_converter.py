@@ -6,6 +6,7 @@ import avi.migrationtools.f5_converter.conversion_util as conv_utils
 import avi.migrationtools.f5_converter.converter_constants as final
 
 LOG = logging.getLogger(__name__)
+ssl_count = {'count': 0}
 
 class ProfileConfigConv(object):
     @classmethod
@@ -208,7 +209,6 @@ class ProfileConfigConvV11(ProfileConfigConv):
         self.object_merge_check = object_merge_check
         # added code to handel count of sslmerge, applicationmerge,
         # networkmerge count
-        self.ssl_count = 0
         self.app_count = 0
         self.net_count = 0
         self.pki_count = 0
@@ -301,7 +301,7 @@ class ProfileConfigConvV11(ProfileConfigConv):
                     converted_objs, name, default_profile_name,
                     merge_object_mapping, profile_type, self.prefix,
                     sys_dict['SSLProfile'])
-                self.ssl_count += 1
+                ssl_count['count'] += 1
             else:
                 avi_config['SSLProfile'].append(ssl_profile)
             crl_file_name = profile.get('crl-file', None)
@@ -860,7 +860,6 @@ class ProfileConfigConvV10(ProfileConfigConv):
         self.supported_oc = f5_profile_attributes['Profile_supported_oc']
         self.object_merge_check = object_merge_check
         # code to get count to merge profile
-        self.ssl_count = 0
         self.app_count = 0
         self.net_count = 0
         self.pki_count = 0
@@ -950,7 +949,7 @@ class ProfileConfigConvV10(ProfileConfigConv):
                     ssl_profile, avi_config['SSLProfile'], 'ssl_profile',
                     merge_object_mapping, profile_type, self.prefix,
                     sys_dict['SSLProfile'])
-                self.ssl_count += 1
+                ssl_count['count'] += 1
             else:
                 avi_config['SSLProfile'].append(ssl_profile)
             crl_file_name = profile.get('crl file', None)

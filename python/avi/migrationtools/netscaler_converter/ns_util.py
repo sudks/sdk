@@ -1517,11 +1517,13 @@ def remove_dup_key(obj_list):
         obj.pop('dup_of', None)
 
 
-def update_profile_ref(ref, tenant, avi_obj, merge_obj_list):
+def update_profile_ref(ref, avi_obj, merge_obj_list):
     for obj in avi_obj:
         obj_ref = obj.get(ref)
+        tenant_ref = obj.get('tenant_ref')
         if obj_ref:
             name = get_name(obj_ref)
+            tenant = get_name(tenant_ref)
             if name in merge_obj_list:
                 updated_name = merge_obj_list[name]
                 if ref == 'application_persistence_profile_ref':
