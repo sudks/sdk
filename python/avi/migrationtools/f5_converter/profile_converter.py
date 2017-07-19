@@ -947,6 +947,7 @@ class ProfileConfigConvV10(ProfileConfigConv):
             if self.object_merge_check:
                 conv_utils.update_skip_duplicates(
                     ssl_profile, avi_config['SSLProfile'], 'ssl_profile',
+                    converted_objs, name, default_profile_name,
                     merge_object_mapping, profile_type, self.prefix,
                     sys_dict['SSLProfile'])
                 ssl_count['count'] += 1
