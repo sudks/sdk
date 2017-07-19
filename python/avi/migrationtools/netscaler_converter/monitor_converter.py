@@ -3,9 +3,10 @@ import re
 import logging
 import avi.migrationtools.netscaler_converter.ns_util as ns_util
 import avi.migrationtools.netscaler_converter.ns_constants as ns_constants
-
+import math
 from avi.migrationtools.netscaler_converter.ns_constants \
     import (STATUS_EXTERNAL_MONITOR, STATUS_MISSING_FILE)
+
 
 
 LOG = logging.getLogger(__name__)
@@ -148,7 +149,11 @@ class MonitorConverter(object):
             LOG.debug('Conversion started for monitor %s' % mon_name)
             avi_monitor["name"] = str(mon_name).strip().replace(" ", "_")
             avi_monitor["tenant_ref"] = self.tenant_ref
-            avi_monitor["receive_timeout"] = ns_monitor.get('resptimeout', 2)
+            recv_timeout = ns_monitor.get('resptimeout', '2')
+            if 'MSEC' in recv_timeout.upper():
+                match_ob = re.findall('[0-9]+', recv_timeout)
+                recv_timeout = int(math.ceil(float(match_ob[0])/1000))
+            avi_monitor["receive_timeout"] = recv_timeout
             avi_monitor["failed_checks"] = ns_monitor.get('failureRetries', 3)
             interval = ns_monitor.get('interval', '5')
             if 'MIN' in interval.upper():

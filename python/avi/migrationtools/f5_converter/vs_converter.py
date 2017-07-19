@@ -132,7 +132,7 @@ class VSConfigConv(object):
                 app_name = app_prof_cmd['name']
                 app_prof[0] = conv_utils.get_object_ref(app_name,
                      'applicationprofile', tenant=conv_utils.get_name_from_ref(
-                                                 app_prof_cmd[0]['tenant_ref']))
+                                                 app_prof_cmd['tenant_ref']))
         destination = f5_vs.get("destination", None)
         d_tenant, destination = conv_utils.get_tenant_ref(destination)
         # if destination is not present then skip vs.
