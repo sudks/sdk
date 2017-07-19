@@ -61,33 +61,18 @@ def convert(meta, ns_config_dict, tenant_name, cloud_name, version, output_dir,
                 '17_1_1')
         avi_config['META']['supported_migrations']['versions'].append(
             'current_version')
-
-        sys_dict['ApplicationProfile'] = []
-        sys_dict['NetworkProfile'] = []
-        sys_dict["SSLProfile"] = []
-        sys_dict['PKIProfile'] = []
-        sys_dict['ApplicationPersistenceProfile'] = []
-        sys_dict['HealthMonitor'] = []
+        merge_object_type = ['ApplicationProfile', 'NetworkProfile',
+                             'SSLProfile', 'PKIProfile',
+                             'ApplicationPersistenceProfile', 'HealthMonitor']
+        for key in merge_object_type:
+            sys_dict[key] = []
+            avi_config[key] = []
 
         if profile_path and os.path.exists(profile_path):
             with open(profile_path) as data:
                 prof_data = json.load(data)
-                sys_dict['ApplicationProfile'] = \
-                    prof_data.get('ApplicationProfile', [])
-                sys_dict['NetworkProfile'] = prof_data.get(
-                    'NetworkProfile', [])
-                sys_dict["SSLProfile"] = prof_data.get('SSLProfile', [])
-                sys_dict['PKIProfile'] = prof_data.get('PKIProfile', [])
-                sys_dict['ApplicationPersistenceProfile'] = \
-                    prof_data.get('ApplicationPersistenceProfile', [])
-                sys_dict['HealthMonitor'] = prof_data.get('HealthMonitor', [])
-
-        avi_config['ApplicationProfile'] = []
-        avi_config['NetworkProfile'] = []
-        avi_config["SSLProfile"] = []
-        avi_config['PKIProfile'] = []
-        avi_config['ApplicationPersistenceProfile'] = []
-        avi_config['HealthMonitor'] = []
+                for key in merge_object_type:
+                    sys_dict[key] = prof_data.get(key, [])
 
         monitor_converter = MonitorConverter(
             tenant_name, cloud_name, tenant_ref, cloud_ref, user_ignore,

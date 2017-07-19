@@ -55,32 +55,18 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
     try:
         # load the yaml file attribute in f5_attributes.
         f5_attributes = conv_const.init(version)
-        sys_dict['ApplicationProfile'] = []
-        sys_dict['NetworkProfile'] = []
-        sys_dict["SSLProfile"] = []
-        sys_dict['PKIProfile'] = []
-        sys_dict['ApplicationPersistenceProfile'] = []
-        sys_dict['HealthMonitor'] = []
+        merge_object_type = ['ApplicationProfile', 'NetworkProfile',
+                             'SSLProfile', 'PKIProfile',
+                             'ApplicationPersistenceProfile', 'HealthMonitor']
+        for key in merge_object_type:
+            sys_dict[key] = []
+            avi_config_dict[key] = []
+
         if profile_path and os.path.exists(profile_path):
             with open(profile_path) as data:
                 prof_data = json.load(data)
-                sys_dict['ApplicationProfile'] = \
-                    prof_data.get('ApplicationProfile',[])
-                sys_dict['NetworkProfile'] = prof_data.get(
-                    'NetworkProfile',[])
-                sys_dict["SSLProfile"] = prof_data.get('SSLProfile',[])
-                sys_dict['PKIProfile'] = prof_data.get('PKIProfile',[])
-                sys_dict['ApplicationPersistenceProfile'] = \
-                    prof_data.get('ApplicationPersistenceProfile',[])
-                sys_dict['HealthMonitor'] = \
-                    prof_data.get('HealthMonitor', [])
-
-        avi_config_dict['ApplicationProfile'] = []
-        avi_config_dict['NetworkProfile'] = []
-        avi_config_dict["SSLProfile"] = []
-        avi_config_dict['PKIProfile'] = []
-        avi_config_dict['ApplicationPersistenceProfile'] = []
-        avi_config_dict['HealthMonitor'] = []
+                for key in merge_object_type:
+                    sys_dict[key] = prof_data.get(key, [])
 
         profile_conv = ProfileConfigConv.get_instance(
             version, f5_attributes, object_merge_check, prefix)

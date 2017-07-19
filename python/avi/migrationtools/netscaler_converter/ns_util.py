@@ -688,25 +688,20 @@ def check_for_duplicates(src_obj, obj_list, obj_type, merge_object_mapping,
     :return: Name of object for which given object is duplicate of
     """
     src_cp = copy.deepcopy(src_obj)
-    del src_cp["name"]
-    if "description" in src_cp:
-        del src_cp["description"]
+    src_cp.pop("name")
+    src_cp.pop("description", [])
     for obj in syslist:
         ob_cp = copy.deepcopy(obj)
-        del ob_cp["name"]
-        if "description" in ob_cp:
-            del ob_cp["description"]
-        if 'url' in ob_cp:
-            del ob_cp['url']
-        if 'uuid' in ob_cp:
-            del ob_cp['uuid']
+        ob_cp.pop("name")
+        ob_cp.pop("description", [])
+        ob_cp.pop('url', [])
+        ob_cp.pop('uuid', [])
         if cmp(src_cp, ob_cp) == 0:
             return obj["name"], src_obj['name']
     for tmp_obj in obj_list:
         tmp_cp = copy.deepcopy(tmp_obj)
-        del tmp_cp["name"]
-        if "description" in tmp_cp:
-            del tmp_cp["description"]
+        tmp_cp.pop("name")
+        tmp_cp.pop("description", [])
         dup_lst = tmp_cp.pop("dup_of", [tmp_obj["name"]])
         if cmp(src_cp, tmp_cp) == 0:
             dup_lst.append(src_obj["name"])

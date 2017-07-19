@@ -98,25 +98,20 @@ def check_for_duplicates(src_obj, obj_list, obj_type, merge_object_mapping,
     :return: Name of object for which given object is duplicate of
     """
     src_cp = copy.deepcopy(src_obj)
-    del src_cp["name"]
-    if "description" in src_cp:
-        del src_cp["description"]
+    src_cp.pop("name")
+    src_cp.pop("description", [])
     for obj in syslist:
         obj_cp = copy.deepcopy(obj)
-        del obj_cp["name"]
-        if "description" in obj_cp:
-            del obj_cp["description"]
-        if 'url' in obj_cp:
-            del obj_cp['url']
-        if 'uuid' in obj_cp:
-            del obj_cp['uuid']
+        obj_cp.pop("name")
+        obj_cp.pop("description", [])
+        obj_cp.pop('url', [])
+        obj_cp.pop('uuid', [])
         if cmp(src_cp, obj_cp) == 0:
             return obj["name"], src_obj['name']
     for tmp_obj in obj_list:
         tmp_cp = copy.deepcopy(tmp_obj)
-        del tmp_cp["name"]
-        if "description" in tmp_cp:
-            del tmp_cp["description"]
+        tmp_cp.pop("name")
+        tmp_cp.pop("description", [])
         dup_lst = tmp_cp.pop("dup_of", [tmp_obj['name']])
         if cmp(src_cp, tmp_cp) == 0:
             dup_lst.append(src_obj["name"])
@@ -1694,7 +1689,7 @@ def update_static_route(route):
         next_hop_ip = next_hop_ip.split('%')[0]
 
     ip_addr = route.get('network', None)
-
+    vrf = None
     # Get the mask from subnet mask
     if ip_addr and '%' in ip_addr:
         ip_addr, vrf = ip_addr.split('%')
