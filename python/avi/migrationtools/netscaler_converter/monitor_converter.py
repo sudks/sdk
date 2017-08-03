@@ -173,14 +173,17 @@ class MonitorConverter(object):
         avi_monitor = dict()
         
         # Adding ssl-key and ssl-certificate for Secure
+        ssl_attributes = None
         if ns_monitor.get('secure', []) == 'YES':
-            # Force changing HTTP to HTTPS in attributes 
+            # Force changing HTTP/HTTP-ECV to HTTPS in attributes 
             if ns_monitor.get('attrs', []):
                 attr = ns_monitor['attrs']
-                print "attr got ", attr
                 if 'HTTP' in attr:
                     attr.append('HTTPS')
                     attr.remove('HTTP')
+                if 'HTTP-ECV' in attr:
+                    attr.append('HTTPS')
+                    attr.remove('HTTP-ECV')
                 ns_monitor['attrs'] = attr
             # IF controller version is greater than 17.1 and type HTTP/S
             # add ssl-key and ssl-certificate
@@ -190,13 +193,12 @@ class MonitorConverter(object):
                                                  'sslkeyandcertificate',
                                                  'admin')
                 profile_ref = ns_util.get_object_ref('System-Standard',
-                                                     'sslkeyandcertificate',
+                                                     'sslprofile',
                                                      'admin')
                 ssl_attributes = {
                                   'ssl_key_and_certificate_ref': key_ref,
                                   'ssl_profile_ref': profile_ref
                                  }
-                avi_monitor['ssl_attributes'] = ssl_attributes
         try:
             mon_name = ns_monitor['attrs'][0]
             # Added prefix for objects
@@ -251,7 +253,8 @@ class MonitorConverter(object):
                     resp_code = ns_util.get_avi_resp_code(resp_code)
                 avi_monitor["https_monitor"] = {
                     "http_request": send,
-                    "http_response_code": resp_code
+                    "http_response_code": resp_code,
+                    "ssl_attributes": ssl_attributes
                 }
             elif mon_type == 'HTTP':
                 avi_monitor["type"] = "HEALTH_MONITOR_HTTP"
