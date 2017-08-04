@@ -187,6 +187,8 @@ class MonitorConverter(object):
                 ns_monitor['attrs'] = attr
             # IF controller version is greater than 17.1 and type HTTP/S
             # add ssl-key and ssl-certificate
+            # TODO: Remove this after all the clients are moved to 
+            # 17 version and above
             if parse_version(self.controller_version) >= parse_version('17.1')\
                     and 'HTTPS' in ns_monitor.get('attrs', []):
                 key_ref = ns_util.get_object_ref('System-Default-Cert',
@@ -251,11 +253,14 @@ class MonitorConverter(object):
                 resp_code = ns_monitor.get('respCode', None)
                 if resp_code:
                     resp_code = ns_util.get_avi_resp_code(resp_code)
-                avi_monitor["https_monitor"] = {
-                    "http_request": send,
-                    "http_response_code": resp_code,
-                    "ssl_attributes": ssl_attributes
-                }
+                # TODO: Remove this after all the clients are moved to 
+                # 17 version and above
+                if parse_version(self.controller_version) >= parse_version('17.1'):
+                    avi_monitor["https_monitor"] = {
+                        "http_request": send,
+                        "http_response_code": resp_code,
+                        "ssl_attributes": ssl_attributes
+                    }
             elif mon_type == 'HTTP':
                 avi_monitor["type"] = "HEALTH_MONITOR_HTTP"
                 send = ns_monitor.get('httpRequest', None)
