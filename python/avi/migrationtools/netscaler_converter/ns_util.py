@@ -1471,13 +1471,17 @@ class NsUtil(MigrationUtil):
                         []) and pol[0]['http_request_policy']['rules'][0].get(
                         'redirect_action'):
                     iplist = [ip['ip_address']['addr'] for ip in vs.get('vip',
-                             []) if ip.get('ip_address',{}).get('addr')]
+                             []) if ip.get('ip_address',{}).get('addr')] or (
+                             [vs['ip_address']['addr']] if vs.get(
+                             'ip_address',{}).get('addr') else [])
                     if iplist:
                         for nvs in avi_config['VirtualService']:
                             if vs['name'] != nvs['name'] and [ip for ip in
-                                iplist if ip in [nip['ip_address']['addr']
-                                for nip in nvs.get('vip', []) if nip.get(
-                                        'ip_address',{}).get('addr')]]:
+                               iplist if ip in ([nip['ip_address']['addr']
+                               for nip in nvs.get('vip', []) if nip.get(
+                               'ip_address',{}).get('addr')] or [nvs[
+                               'ip_address']['addr']] if nvs.get(
+                               'ip_address',{}).get('addr') else [])]:
                                 appname = self.get_name(nvs[
                                             'application_profile_ref']) if \
                                             nvs.get('application_profile_ref') \
