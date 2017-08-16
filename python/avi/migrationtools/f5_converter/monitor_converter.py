@@ -120,8 +120,12 @@ class MonitorConfigConv(object):
         key_file_name = f5_monitor.get('key', None)
         cert_file_name = f5_monitor.get('cert', None)
         folder_path = input_dir + os.path.sep
-        key = conv_utils.upload_file(folder_path + key_file_name)
-        cert = conv_utils.upload_file(folder_path + cert_file_name)
+        key = None
+        if key_file_name:
+            key = conv_utils.upload_file(folder_path + key_file_name)
+        cert = None
+        if cert_file_name:
+            cert = conv_utils.upload_file(folder_path + cert_file_name)
         name = monitor_dict['name']
         if not key or not cert:
             key, cert = conv_utils.create_self_signed_cert()
@@ -414,7 +418,7 @@ class MonitorConfigConvV11(MonitorConfigConv):
                       tenant_ref, input_dir, cloud_name, controller_version,
                       merge_object_mapping, sys_dict):
         skipped = [key for key in skipped if key not in self.https_attr]
-        send = f5_monitor.get('send', None)
+        send = f5_monitor.get('send', 'HEAD / HTTP/1.0')
         send = send.replace('\\\\', '\\')
         send = conv_utils.rreplace(send, '\\r\\n', '', 1)
         monitor_dict["type"] = "HEALTH_MONITOR_HTTPS"
