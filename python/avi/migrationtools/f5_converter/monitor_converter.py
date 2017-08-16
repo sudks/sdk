@@ -192,8 +192,6 @@ class MonitorConfigConv(object):
                 continue
             f5_monitor = self.get_defaults(monitor_config, key)
             monitor_type, name = self.get_name_type(f5_monitor, key)
-            if name == 'https_443':
-                print 'hi'
             # Added prefix for objects
             if self.prefix:
                 name = self.prefix + '-' + name

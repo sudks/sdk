@@ -1677,8 +1677,26 @@ class F5Util(MigrationUtil):
                         'SSLProfile']) if ob['name'] == updated_name]
                     tenant = self.get_name(prof[0]['tenant_ref'])
                     type_cons = conv_const.OBJECT_TYPE_SSL_PROFILE
-                    obj['https_monitor']['ssl_attributes']['ssl_profile_ref'] = \
+                    obj['https_monitor']['ssl_attributes']['ssl_profile_ref'] =\
                         self.get_object_ref(updated_name, type_cons, tenant)
+
+    def update_app_profile(self, aviconfig, sys_dict, tenant):
+        for vs_obj in aviconfig['VirtualService']:
+            if len(vs_obj['services']) > 1:
+                app_profile = self.get_name(vs_obj['application_profile_ref'])
+                app_profile_obj = [app for app in sys_dict[
+                        'ApplicationProfile'] + aviconfig['ApplicationProfile']
+                                   if app['name'] == app_profile]
+                if app_profile_obj and app_profile_obj[0][
+                    'type'] == 'APPLICATION_PROFILE_TYPE_L4':
+                    for service in vs_obj['services']:
+                        if service['enable_ssl']:
+                            vs_obj['application_profile_ref'] = \
+                                self.get_object_ref('System-HTTP',
+                                    conv_const.OBJECT_TYPE_APPLICATION_PROFILE,
+                                                    tenant)
+
+                            break
 
 
 
