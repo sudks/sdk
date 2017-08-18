@@ -51,8 +51,8 @@ class PoolConfigConv(object):
                                           conv_const.STATUS_SKIPPED, msg)
                 continue
             if 'gateway-failsafe-device' in f5_pool:
-                msg = "Not supported gateway-failsafe-device, pool skipped "
-                          "for conversion :%s" % pool_name
+                msg = ("Not supported gateway-failsafe-device, pool skipped "
+                          "for conversion :%s" % pool_name)
                 LOG.debug()
                 conv_utils.add_status_row('pool', None, pool_name,
                                           conv_const.STATUS_SKIPPED, msg)

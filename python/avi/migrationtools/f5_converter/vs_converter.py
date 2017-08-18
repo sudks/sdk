@@ -151,7 +151,7 @@ class VSConfigConv(object):
             cloud_name, self.prefix, vs_name)
         # Added Check for if port is no digit skip vs.
         if not services_obj and not ip_addr and not vsvip_ref:
-            msg = "Skipped: Virtualservice: %s" % vs_name
+            msg = "Skipped is not a digit: Virtualservice : %s" % vs_name
             LOG.debug(msg)
             conv_utils.add_status_row('virtual', None, vs_name,
                                       final.STATUS_SKIPPED, msg)
