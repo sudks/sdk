@@ -136,9 +136,6 @@ class ProfileConfigConv(object):
                      cert['key_file_name'] == key_file_name and
                      cert['cert_file_name'] == cert_file_name]
 
-        if key_file_name == 'cd_rt_key':
-            print 'cought'
-
         if cert_name:
             LOG.warning(
                 'SSL key and Certificate is already exist for %s and %s is %s' %
@@ -148,6 +145,10 @@ class ProfileConfigConv(object):
         key = None
         cert = None
         if key_file_name and cert_file_name:
+            if '/' in key_file_name:
+                key_file_name = key_file_name.split('/')[-1]
+            if '/' in cert_file_name:
+                cert_file_name = cert_file_name.split('/')[-1]
             key = conv_utils.upload_file(folder_path + key_file_name)
             cert = conv_utils.upload_file(folder_path + cert_file_name)
 
@@ -240,6 +241,8 @@ class ProfileConfigConvV11(ProfileConfigConv):
         self.supported_oc = f5_profile_attributes['Profile_supported_oc']
         if keypassphrase:
             self.f5_passphrase_keys = yaml.safe_load(open(keypassphrase))
+        else:
+            self.f5_passphrase_keys = None
         self.object_merge_check = object_merge_check
         # added code to handel count of sslmerge, applicationmerge,
         # networkmerge count
@@ -896,7 +899,8 @@ class ProfileConfigConvV10(ProfileConfigConv):
         self.supported_oc = f5_profile_attributes['Profile_supported_oc']
         if keypassphrase:
             self.f5_passphrase_keys = yaml.safe_load(open(keypassphrase))
-
+        else:
+            self.f5_passphrase_keys = None
         self.object_merge_check = object_merge_check
         # code to get count to merge profile
         self.app_count = 0
