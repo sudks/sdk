@@ -9,7 +9,7 @@ import ast
 import pandas
 import pexpect
 import avi.migrationtools.netscaler_converter.ns_constants as ns_constants
-
+import string
 from pkg_resources import parse_version
 from xlsxwriter import Workbook
 from openpyxl import load_workbook
@@ -39,6 +39,8 @@ skipped_setting = {
 # Added variable for checking progress and get overall object.
 progressbar_count = 0
 total_count = 0
+ran_str = ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase
+                                + string.digits) for _ in range(3))
 
 
 class NsUtil(MigrationUtil):
@@ -1420,10 +1422,10 @@ class NsUtil(MigrationUtil):
                 if tmp_obj["name"] in merge_object_mapping[obj_type].keys():
                     merge_object_mapping[obj_type]['no'] += 1
                     no = merge_object_mapping[obj_type]['no']
-                    mid_name = ent_type and (
-                    'Merged-' + ent_type + '-' + obj_type
-                    + '-' + str(no)) or ('Merged-' +
-                                         obj_type + '-' + str(no))
+                    mid_name = ent_type and ('Merged-' + ent_type + '-' +
+                               obj_type + '-' + ran_str + '-' + str(no)) or (
+                               'Merged-' + obj_type + '-' + ran_str + '-' +
+                               str(no))
                     new_name = prefix + '-' + mid_name if prefix else mid_name
                     tmp_obj["name"] = new_name
                 return tmp_obj["name"], old_name
