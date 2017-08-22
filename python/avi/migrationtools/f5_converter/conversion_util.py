@@ -730,7 +730,8 @@ class F5Util(MigrationUtil):
 
     def update_pool_for_persist(self, avi_pool_list, pool_ref, persist_profile,
                                 hash_profiles, persist_config, tenant,
-                                merge_object_mapping, syspersist):
+                                merge_object_mapping, syspersist,
+                                app_prof_type):
         """
         Updates pool for persistence profile assigned in F5 VS config
         :param avi_pool_list: List of all converted pool objects to avi config
@@ -739,6 +740,7 @@ class F5Util(MigrationUtil):
         :param hash_profiles: list of profile name for which pool's lb algorithm
         updated to hash
         :param persist_config: list of all converted persistence profiles
+        :param app_prof_type: type of application profile for the VS
         :return: Boolean of is pool updated successfully
         """
         pool_updated = True
@@ -756,10 +758,18 @@ class F5Util(MigrationUtil):
                                                ("dup_of",[]))]
         persist_ref_key = "application_persistence_profile_ref"
         if persist_profile_obj:
-            obj_tenant = persist_profile_obj[0]['tenant_ref']
-            pool_obj[persist_ref_key] = self.get_object_ref(
-                persist_profile_obj[0]['name'], 'applicationpersistenceprofile',
-                tenant=self.get_name(obj_tenant))
+            if app_prof_type != 'APPLICATION_PROFILE_TYPE_L4':
+                obj_tenant = persist_profile_obj[0]['tenant_ref']
+                pool_obj[persist_ref_key] = self.get_object_ref(
+                                                persist_profile_obj[0]['name'],
+                                                'applicationpersistenceprofile',
+                                            tenant=self.get_name(obj_tenant))
+            else:
+                pool_obj[persist_ref_key] = self.get_object_ref(
+                                                'System-Persistence-Client-IP',
+                                                'applicationpersistenceprofile')
+                LOG.debug("Defaulted to Client IP persistence profile for '%s' "
+                          "Pool in VS of L4 app type " % pool_ref)
         elif persist_profile == "hash" or persist_profile in hash_profiles:
             del pool_obj["lb_algorithm"]
             hash_algorithm = "LB_ALGORITHM_CONSISTENT_HASH_SOURCE_IP_ADDRESS"
@@ -770,7 +780,8 @@ class F5Util(MigrationUtil):
 
     def update_pool_group_for_persist(self, avi_config, pool_ref, persist_profile,
                                       hash_profiles, persist_config, tenant,
-                                      merge_object_mapping, syspersist):
+                                      merge_object_mapping, syspersist,
+                                      app_prof_type):
         pool_group_updated = True
         pool_group = [obj for obj in avi_config['PoolGroup']
                       if obj['name'] == pool_ref]
@@ -780,8 +791,8 @@ class F5Util(MigrationUtil):
                 pool_name = self.get_name(member['pool_ref'])
                 pool_updated = self.update_pool_for_persist(
                     avi_config['Pool'], pool_name, persist_profile,
-                    hash_profiles,
-                    persist_config, tenant, merge_object_mapping, syspersist)
+                    hash_profiles, persist_config, tenant, merge_object_mapping,
+                    syspersist, app_prof_type)
                 if not pool_updated:
                     pool_group_updated = False
         return pool_group_updated

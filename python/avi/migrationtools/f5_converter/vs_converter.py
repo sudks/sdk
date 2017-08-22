@@ -192,12 +192,12 @@ class VSConfigConv(object):
                     pool_updated = conv_utils.update_pool_group_for_persist(
                         avi_config, pool_ref, persist_ref, hash_profiles,
                         avi_persistence, tenant, merge_object_mapping,
-                        syspersist)
+                        syspersist, app_prof_type)
                 else:
                     pool_updated = conv_utils.update_pool_for_persist(
                         avi_config['Pool'], pool_ref, persist_ref,
                         hash_profiles, avi_persistence, tenant,
-                        merge_object_mapping, syspersist)
+                        merge_object_mapping, syspersist, app_prof_type)
 
                 if not pool_updated:
                     skipped.append("persist")
