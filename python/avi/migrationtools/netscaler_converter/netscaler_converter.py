@@ -57,7 +57,7 @@ class NetscalerConverter(AviConverter):
         # Added args for redirecting http vs to https vs
         self.redirect = args.redirect
         # for ansible 
-        self.ansible = args.ansible
+        self.create_ansible = args.ansible
 
 
     def init_logger_path(self):
@@ -138,7 +138,7 @@ class NetscalerConverter(AviConverter):
         self.write_output(
             avi_config, output_dir, '%s-Output.json' % report_name)
 
-        if self.ansible:
+        if self.create_ansible:
             avi_ansible = AviAnsibleConverter(avi_config,
                                               output_dir,
                                               self.prefix,
