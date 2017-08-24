@@ -239,12 +239,12 @@ class MigrationUtil(object):
         :return: validity and new value
         """
         valid = None
-        new_value = value if value is not None else None
+        new_value = value
         for key, val in limit_data.iteritems():
             pr = val.get(obj, {})
             if not pr:
                 continue
-            LOG.debug("Validating property '%s'" % ('-->'.join(entity_names) +
+            LOG.debug("Validating property '%s'", ('-->'.join(entity_names) +
                             '-->' + prop_name if entity_names else prop_name))
             p_key = self.get_to_prop(val, pr, entity_names, prop_name,
                                      limit_data)
@@ -252,10 +252,10 @@ class MigrationUtil(object):
             if typ:
                 break
         else:
-            LOG.debug("Property '%s' is not present in generated json, reason "
+            LOG.debug("Property '%s' is not present in generated yaml, reason "
                    "being the property doesn't have any attribute from the "
-                   "list %s" % (prop_name, str(['default_value', 'range',
-                                                'special_values', 'ref_type'])))
+                   "list %s", prop_name, str(['default_value', 'range',
+                                                'special_values', 'ref_type']))
             return None, None
         if new_value is not None:
             if type(new_value) == unicode:
@@ -275,7 +275,7 @@ class MigrationUtil(object):
                             new_value = int(high)
                         else:
                             valid = True
-                            LOG.debug("Value '%s' is fine" % str(new_value))
+                            LOG.debug("Value '%s' is fine", str(new_value))
                 if typ == 'str':
                     options = p_key.get('option_values')
                     if options and new_value not in options:
@@ -283,7 +283,7 @@ class MigrationUtil(object):
                         new_value = p_key.get('default_value')
                     else:
                         valid = True
-                        LOG.debug("Value '%s' is fine" % str(new_value))
+                        LOG.debug("Value '%s' is fine", str(new_value))
                 if typ == 'bool':
                     if new_value not in (False, True, 'False', 'True'):
                         valid = False
@@ -291,22 +291,22 @@ class MigrationUtil(object):
                         new_value = False if new_value == 'False' else True
                     else:
                         valid = True
-                        LOG.debug("Value '%s' is fine" % str(new_value))
+                        LOG.debug("Value '%s' is fine", str(new_value))
             else:
                 LOG.debug("Type of value '%s' doesn't match with type '%s' "
-                       "defined" % (str(type(new_value)), typ))
+                       "defined", str(type(new_value)), typ)
                 valid, new_value = None, None
         else:
-            if eval(p_key.get('required')):
+            if p_key.get('required') == 'True':
                 valid = False
                 new_value = p_key.get('default_value')
                 if typ == 'bool':
                     new_value = False if new_value == 'False' else True
-                LOG.debug("Value is required hence, defaulting to value '%s'" %
+                LOG.debug("Value is required hence, defaulting to value '%s'",
                           str(new_value))
             else:
                 valid = True
-                LOG.debug("Property '%s' not mandatory" % prop_name)
+                LOG.debug("Property '%s' not mandatory", prop_name)
 
         return valid, new_value
 
@@ -351,8 +351,8 @@ class MigrationUtil(object):
                 if obj != 'META' and vals:
                     for val in vals:
                         heir = []
-                        LOG.debug("Validating %s of Object %s" %
-                                  (val['name'], obj))
+                        LOG.debug("Validating %s of Object %s", val['name'],
+                                  obj)
                         self.validate_prop(val, heir, limit_data, obj)
 
     def validate_prop(self, dictval, heir, limit_data, obj):
@@ -364,7 +364,7 @@ class MigrationUtil(object):
                      'pki_profile_ref', 'pool_ref', 'pool_group_ref',
                      'http_policy_set_ref', 'ssl_key_and_certificate_refs',
                      'vsvip_ref', 'description']:
-                LOG.debug("Skipping validation checks for '%s'" % k)
+                LOG.debug("Skipping validation checks for '%s'", k)
                 continue
             else:
                 if isinstance(v, list):
@@ -375,7 +375,7 @@ class MigrationUtil(object):
                             heir and heir.pop() or None
                         else:
                             LOG.debug("Property '%s' has value as a list %s, "
-                                  "not supported currently" % (k, str(v)))
+                                  "not supported currently", k, str(v))
                             #valid, val = self.validate_value(heir, k, listval,
                                                     #limit_data)
                             #if valid is False:
@@ -390,7 +390,7 @@ class MigrationUtil(object):
                                                      obj)
                     if valid is False:
                         LOG.debug("Correcting the value for '%s' from '%s' to "
-                                  "'%s'" % (k, str(v), str(val)))
+                                  "'%s'", k, str(v), str(val))
                         dictval[k] = val
 
     
