@@ -185,16 +185,19 @@ class VSConfigConv(object):
                         avi_config, pool_ref, tenant, sys_dict)
 
             persist_ref = self.get_persist_ref(f5_vs)
+            persist_type = None
             if persist_ref:
                 avi_persistence = avi_config['ApplicationPersistenceProfile']
                 syspersist = sys_dict['ApplicationPersistenceProfile']
                 if is_pool_group:
-                    pool_updated = conv_utils.update_pool_group_for_persist(
+                    pool_updated, persist_type = \
+                        conv_utils.update_pool_group_for_persist(
                         avi_config, pool_ref, persist_ref, hash_profiles,
                         avi_persistence, tenant, merge_object_mapping,
                         syspersist, app_prof_type)
                 else:
-                    pool_updated = conv_utils.update_pool_for_persist(
+                    pool_updated, persist_type = \
+                        conv_utils.update_pool_for_persist(
                         avi_config['Pool'], pool_ref, persist_ref,
                         hash_profiles, avi_persistence, tenant,
                         merge_object_mapping, syspersist, app_prof_type)
@@ -204,6 +207,14 @@ class VSConfigConv(object):
                     LOG.warning(
                         "persist profile %s not found for vs:%s" %
                         (persist_ref, vs_name))
+            if oc_prof and not ssl_vs and persist_type == \
+                    'PERSISTENCE_TYPE_TLS':
+                msg = ('Secure persistence is applicable only if SSL is enabled'
+                       ' for Virtual Service in Avi Skipping VS : %s' % vs_name)
+                LOG.warning(msg)
+                conv_utils.add_status_row('virtual', None, vs_name,
+                                          final.STATUS_SKIPPED, msg)
+                return
             if f_host:
                 conv_utils.update_pool_for_fallback(
                     f_host, avi_config['Pool'], pool_ref)

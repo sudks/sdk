@@ -744,6 +744,7 @@ class F5Util(MigrationUtil):
         :return: Boolean of is pool updated successfully
         """
         pool_updated = True
+        persist_type = None
         pool_obj = [pool for pool in avi_pool_list if pool["name"] == pool_ref]
         if not pool_obj:
             LOG.error("Pool %s not found to add profile %s" %
@@ -764,10 +765,12 @@ class F5Util(MigrationUtil):
                                                 persist_profile_obj[0]['name'],
                                                 'applicationpersistenceprofile',
                                             tenant=self.get_name(obj_tenant))
+                persist_type = persist_profile_obj[0]['persistence_type']
             else:
                 pool_obj[persist_ref_key] = self.get_object_ref(
                                                 'System-Persistence-Client-IP',
                                                 'applicationpersistenceprofile')
+                persist_type = 'PERSISTENCE_TYPE_CLIENT_IP_ADDRESS'
                 LOG.debug("Defaulted to Client IP persistence profile for '%s' "
                           "Pool in VS of L4 app type " % pool_ref)
         elif persist_profile == "hash" or persist_profile in hash_profiles:
@@ -776,26 +779,27 @@ class F5Util(MigrationUtil):
             pool_obj["lb_algorithm_hash"] = hash_algorithm
         else:
             pool_updated = False
-        return pool_updated
+        return pool_updated, persist_type
 
     def update_pool_group_for_persist(self, avi_config, pool_ref, persist_profile,
                                       hash_profiles, persist_config, tenant,
                                       merge_object_mapping, syspersist,
                                       app_prof_type):
         pool_group_updated = True
+        persist_type = None
         pool_group = [obj for obj in avi_config['PoolGroup']
                       if obj['name'] == pool_ref]
         if pool_group:
             pool_group = pool_group[0]
             for member in pool_group['members']:
                 pool_name = self.get_name(member['pool_ref'])
-                pool_updated = self.update_pool_for_persist(
+                pool_updated, persist_type = self.update_pool_for_persist(
                     avi_config['Pool'], pool_name, persist_profile,
                     hash_profiles, persist_config, tenant, merge_object_mapping,
                     syspersist, app_prof_type)
                 if not pool_updated:
                     pool_group_updated = False
-        return pool_group_updated
+        return pool_group_updated, persist_type
 
 
     def update_pool_for_fallback(self, host, avi_pool_list, pool_ref):
