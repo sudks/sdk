@@ -209,8 +209,8 @@ class VSConfigConv(object):
                         (persist_ref, vs_name))
             if oc_prof and not ssl_vs and persist_type == \
                     'PERSISTENCE_TYPE_TLS':
-                msg = ('Secure persistence is applicable only if SSL is enabled'
-                       ' for Virtual Service in Avi Skipping VS : %s' % vs_name)
+                msg = ("Skipped VS : '%s' Secure persistence is applicable only"
+                       " if SSL is enabled for Virtual Service" % vs_name)
                 LOG.warning(msg)
                 conv_utils.add_status_row('virtual', None, vs_name,
                                           final.STATUS_SKIPPED, msg)
@@ -365,7 +365,6 @@ class VSConfigConv(object):
         snat_pool_name = snat.get("pool", f5_vs.get("snatpool", None))
         snat_pool = snat_config.pop(snat_pool_name, None)
         if snat_pool:
-            print snat_pool_name
             if self.con_snatpool:
                 LOG.debug("Converting the snat as input flag and snat "
                           "information is set")
@@ -381,7 +380,6 @@ class VSConfigConv(object):
                 conv_utils.add_conv_status('snatpool', '', snat_pool_name,
                                            conv_status, message)
             else:
-                print "else: ",snat_pool_name
                 msg = ("Skipped: snat conversion as input flag is not set"
                        " for vs : %s" % vs_name)
                 LOG.debug(msg)
