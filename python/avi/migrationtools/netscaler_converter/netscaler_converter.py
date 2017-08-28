@@ -139,10 +139,8 @@ class NetscalerConverter(AviConverter):
             avi_config, output_dir, '%s-Output.json' % report_name)
 
         if self.create_ansible:
-            avi_ansible = AviAnsibleConverter(avi_config,
-                                              output_dir,
-                                              self.prefix,
-                                              self.not_in_use)
+            avi_ansible = AviAnsibleConverter(avi_config, output_dir,
+                                              self.prefix, self.not_in_use)
             avi_ansible.write_ansible_playbook(self.ns_host_ip,
                                                self.ns_ssh_user,
                                                self.ns_ssh_password)
@@ -259,8 +257,8 @@ if __name__ == "__main__":
                                'there is no pool assigned', action="store_true")
 
     # Ansible tags
-    parser.add_argument('--ansible', help='redirect http vs to https vs if '
-                               'there is no pool assigned', action="store_true")
+    parser.add_argument('--ansible', help='Flag for create ansible file',
+                        action="store_true")
 
     args = parser.parse_args()
     # print avi netscaler converter version
