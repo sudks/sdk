@@ -402,7 +402,9 @@ def avi_common_argument_spec():
     return dict(
             controller=dict(default=os.environ.get('AVI_CONTROLLER', '')),
             username=dict(default=os.environ.get('AVI_USERNAME', '')),
-            password=dict(default=os.environ.get('AVI_PASSWORD', ''), no_log=True),
+            password=dict(default=os.environ.get('AVI_PASSWORD', ''),
+                          no_log=True),
             tenant=dict(default='admin'),
             tenant_uuid=dict(default=''),
-            api_version=dict(default='16.4', type='str'))
+            api_version=dict(default=os.environ.get('AVI_API_VERSION', '16.4'),
+                             type='str'))
