@@ -130,7 +130,8 @@ class MigrationUtil(object):
                     mid_name = ent_type and ('Merged-%s-%s-%s-%s' % (ent_type,
                                obj_type, ran_str, str(no))) or (
                                'Merged-%s-%s-%s' % (obj_type, ran_str, str(no)))
-                    new_name = prefix + '-' + mid_name if prefix else mid_name
+                    new_name = '%s-%s' %(prefix, mid_name) if prefix else \
+                                mid_name
                     tmp_obj["name"] = new_name
                 return tmp_obj["name"], old_name
         return None, None
