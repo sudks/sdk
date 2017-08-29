@@ -127,10 +127,9 @@ class MigrationUtil(object):
                 if tmp_obj["name"] in merge_object_mapping[obj_type].keys():
                     merge_object_mapping[obj_type]['no'] += 1
                     no = merge_object_mapping[obj_type]['no']
-                    mid_name = ent_type and ('Merged-' + ent_type + '-' +
-                               obj_type + '-' + ran_str + '-' + str(no)) or (
-                               'Merged-' + obj_type + '-' + ran_str + '-' +
-                               str(no))
+                    mid_name = ent_type and ('Merged-%s-%s-%s-%s' % (ent_type,
+                               obj_type, ran_str, str(no))) or (
+                               'Merged-%s-%s-%s' % (obj_type, ran_str, str(no)))
                     new_name = prefix + '-' + mid_name if prefix else mid_name
                     tmp_obj["name"] = new_name
                 return tmp_obj["name"], old_name
