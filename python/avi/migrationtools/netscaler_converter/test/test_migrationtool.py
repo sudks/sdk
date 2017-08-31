@@ -19,13 +19,6 @@ config_file=pytest.config.getoption("--config")
 with open(config_file) as f:
     file_attribute = yaml.load(f)
 
-output_file_name=os.path.abspath(
-        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
-                             'ns_host_ip'] + os.sep + 'output' + os.sep + 'ns-ConversionStatus.xlsx'
-output_json_file_name=os.path.abspath(
-        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
-                             'ns_host_ip'] + os.sep + 'output' + os.sep + 'ns-Output.json'
-
 setup = dict(
     controller_version_v16=file_attribute['controller_version_v16'],
     controller_version_v17=file_attribute['controller_version_v17'],
@@ -45,9 +38,7 @@ setup = dict(
     cloud_name=file_attribute['cloud_name'],
     tenant=file_attribute['tenant'],
     input_folder_location='',
-    config_file_name=os.path.abspath(
-        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
-                             'ns_host_ip'] + os.sep + 'input' + os.sep + 'ns.conf',
+    config_file_name='ns.conf',
     config_file_name_passphrase='ns_passphrase.conf',
     ns_passphrase_file='passphrase.yaml',
     ns_key_file='cd_rt_key.pem',
@@ -116,28 +107,30 @@ class TestNetscalerConverter:
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        controller_version=setup.get('controller_version_v16'),
                 output_file_path='output')
-        percentage_success(output_file_name)
+        percentage_success('./output/ns-ConversionStatus.xlsx')
 
     @pytest.mark.travis
     def test_output_sanitization_17_1_1(self):
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        controller_version=setup.get('controller_version_v17'),
                        output_file_path='output')
-        percentage_success(output_file_name, output_json_file_name)
+        percentage_success('./output/ns-ConversionStatus.xlsx',
+                            './output/ns-Output.json')
 
     @pytest.mark.travis
     def test_excel_report_16_4(self):
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        controller_version=setup.get('controller_version_v16'),
                        output_file_path='output')
-        percentage_success(output_file_name)
+        percentage_success('./output/ns-ConversionStatus.xlsx')
 
     @pytest.mark.travis
     def test_output_sanitization_17_1_1(self):
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        controller_version=setup.get('controller_version_v17'),
                        output_file_path='output')
-        output_sanitization(output_file_name, output_json_file_name)
+        output_sanitization('./output/ns-ConversionStatus.xlsx',
+                            './output/ns-Output.json')
 
     @pytest.mark.travis
     def test_without_options_17_1_1(self):

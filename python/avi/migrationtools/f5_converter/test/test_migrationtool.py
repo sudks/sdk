@@ -20,19 +20,6 @@ config_file=pytest.config.getoption("--config")
 with open(config_file) as f:
     file_attribute = yaml.load(f)
 
-output_file_name_v10=os.path.abspath(
-        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
-                             'f5_host_ip_v10'] + os.sep + 'output' + os.sep + 'bigip-ConversionStatus.xlsx'
-output_json_file_name_v10=os.path.abspath(
-        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
-                             'f5_host_ip_v10'] + os.sep + 'output' + os.sep + 'bigip-Output.json'
-output_file_name_v11=os.path.abspath(
-        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
-                             'f5_host_ip_v11'] + os.sep + 'output' + os.sep + 'bigip-ConversionStatus.xlsx'
-output_json_file_name_v11=os.path.abspath(
-        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
-                             'f5_host_ip_v11'] + os.sep + 'output' + os.sep + 'bigip-Output.json'
-
 setup = dict(
     controller_version_v16=file_attribute['controller_version_v16'],
     controller_version_v17=file_attribute['controller_version_v17'],
@@ -56,12 +43,10 @@ setup = dict(
     cloud_name=file_attribute['cloud_name'],
     tenant=file_attribute['tenant'],
     input_folder_location='',
-    config_file_name_v10=os.path.abspath(
-        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
-                             'f5_host_ip_v10'] + os.sep + 'input' + os.sep + 'bigip.conf',
-    config_file_name_v11=os.path.abspath(
-        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
-                             'f5_host_ip_v11'] + os.sep + 'input' + os.sep + 'bigip.conf',
+    config_file_name_v10=os.path.abspath (
+        os.path.dirname (__file__)) + os.sep + 'bigip_v10.conf',
+    config_file_name_v11=os.path.abspath (
+        os.path.dirname (__file__)) + os.sep + 'bigip_v11.conf',
     partition_config='new',  # this is new
     f5_key_file='cd_rt_key.pem',
     ignore_config=os.path.abspath(
@@ -147,7 +132,7 @@ class TestF5Converter:
                  f5_config_version=setup.get('file_version_v10'),
                  controller_version=setup.get('controller_version_v17'),
                  output_file_path='output')
-        percentage_success(output_file_name_v10)
+        percentage_success('./output/bigip_v10-ConversionStatus.xlsx')
 
     @pytest.mark.travis
     def test_output_sanitization_v10(self):
@@ -155,7 +140,8 @@ class TestF5Converter:
                  f5_config_version=setup.get('file_version_v10'),
                  controller_version=setup.get('controller_version_v17'),
                  output_file_path='output')
-        output_sanitization(output_file_name_v10, output_json_file_name_v10)
+        output_sanitization('./output/bigip_v10-ConversionStatus.xlsx',
+                            './output/bigip_v10-Output.json')
 
     @pytest.mark.travis
     def test_excel_report_v11(self):
@@ -163,7 +149,7 @@ class TestF5Converter:
                  f5_config_version=setup.get('file_version_v11'),
                  controller_version=setup.get('controller_version_v17'),
                  output_file_path='output')
-        percentage_success(output_file_name_v11)
+        percentage_success('./output/bigip_v11-ConversionStatus.xlsx')
 
     @pytest.mark.travis
     def test_output_sanitization_v11(self):
@@ -171,7 +157,8 @@ class TestF5Converter:
                  f5_config_version=setup.get('file_version_v11'),
                  controller_version=setup.get('controller_version_v17'),
                  output_file_path='output')
-        output_sanitization(output_file_name_v11, output_json_file_name_v11)
+        output_sanitization('./output/bigip_v11-ConversionStatus.xlsx',
+                            './output/bigip_v11-Output.json')
 
     @pytest.mark.travis
     def test_without_options_v10(self):
