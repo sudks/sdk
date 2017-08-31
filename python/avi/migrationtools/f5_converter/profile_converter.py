@@ -198,12 +198,16 @@ class ProfileConfigConv(object):
             LOG.info('Added new SSL key and certificate for %s' % name)
 
         if ssl_kc_obj:
-            if 'dummy' not in ssl_kc_obj['name']:
-                conv_utils.update_skip_duplicates(ssl_kc_obj,
-                    avi_config['SSLKeyAndCertificate'],'ssl_cert_key',
-                    converted_objs, name, default_profile_name,
-                    merge_object_mapping, None, self.prefix, sys_dict[
-                    'SSLKeyAndCertificate'])
+            if self.object_merge_check:
+                if 'dummy' not in ssl_kc_obj['name']:
+                    conv_utils.update_skip_duplicates(ssl_kc_obj,
+                        avi_config['SSLKeyAndCertificate'],'ssl_cert_key',
+                        converted_objs, name, default_profile_name,
+                        merge_object_mapping, None, self.prefix, sys_dict[
+                        'SSLKeyAndCertificate'])
+                else:
+                    avi_config['SSLKeyAndCertificate'].append(ssl_kc_obj)
+                self.certkey_count += 1
             else:
                 avi_config['SSLKeyAndCertificate'].append(ssl_kc_obj)
 
@@ -252,10 +256,11 @@ class ProfileConfigConvV11(ProfileConfigConv):
             self.f5_passphrase_keys = None
         self.object_merge_check = object_merge_check
         # added code to handel count of sslmerge, applicationmerge,
-        # networkmerge count
+        # networkmerge count, certkey_count
         self.app_count = 0
         self.net_count = 0
         self.pki_count = 0
+        self.certkey_count = 0
         # Added prefix for objects
         self.prefix = prefix
 
@@ -912,10 +917,11 @@ class ProfileConfigConvV10(ProfileConfigConv):
         else:
             self.f5_passphrase_keys = None
         self.object_merge_check = object_merge_check
-        # code to get count to merge profile
+        # code to get count to merge objects
         self.app_count = 0
         self.net_count = 0
         self.pki_count = 0
+        self.certkey_count = 0
         # Added prefix for objects
         self.prefix = prefix
 

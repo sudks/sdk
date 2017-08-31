@@ -211,6 +211,16 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
                 LOG.info(profile_merged_message)
                 print profile_merged_message
                 continue
+            elif object_merge_check and key == 'SSLKeyAndCertificate':
+                mergedfile = len(avi_config_dict[key]) - \
+                             profile_conv.certkey_count
+                certkey_merged_message = \
+                    'Total Objects of %s : %s (%s/%s cert key merged)' % \
+                    (key, len(avi_config_dict[key]), abs(mergedfile),
+                     profile_conv.certkey_count)
+                LOG.info(certkey_merged_message)
+                print certkey_merged_message
+                continue
             LOG.info('Total Objects of %s : %s' % (key, len(
                 avi_config_dict[key])))
             print 'Total Objects of %s : %s' % (key, len(
