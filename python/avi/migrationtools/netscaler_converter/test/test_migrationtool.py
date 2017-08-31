@@ -19,6 +19,12 @@ config_file=pytest.config.getoption("--config")
 with open(config_file) as f:
     file_attribute = yaml.load(f)
 
+output_file_name=os.path.abspath(
+        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
+                             'ns_host_ip'] + os.sep + 'output' + os.sep + 'ns-ConversionStatus.xlsx'
+output_json_file_name=os.path.abspath(
+        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
+                             'ns_host_ip'] + os.sep + 'output' + os.sep + 'ns-Output.json'
 
 setup = dict(
     controller_version_v16=file_attribute['controller_version_v16'],
@@ -47,7 +53,7 @@ setup = dict(
     ns_key_file='cd_rt_key.pem',
     ignore_config=os.path.abspath(os.path.dirname(__file__)) + os.sep + 'ignore-config.yaml',
     ns_ansible_object=os.path.abspath
-       (os.path.join(os.path.dirname(__file__), 'output', 'avi_config_create_object.yml')),
+      (os.path.join(os.path.dirname(__file__), 'output', 'avi_config_create_object.yml')),
     patch='patch.yml',
     vs_filter='vs_ksl.com,vs_NStoAvi-SG',
     not_in_use=True,
@@ -94,36 +100,44 @@ def netscaler_conv(
 
 
 class TestNetscalerConverter:
+    
+    @pytest.mark.skip_travis
+    def test_download(self):
+        """
+        Download Input File Flow.
+        """
+        netscaler_conv(ns_host_ip=setup.get('ns_host_ip'),
+                       ns_ssh_user=setup.get('ns_ssh_user'),
+                       ns_ssh_password=setup.get('ns_ssh_password'),
+                       controller_version=setup.get('controller_version_v17'))
 
     @pytest.mark.travis
     def test_excel_report_16_4(self):
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        controller_version=setup.get('controller_version_v16'),
                 output_file_path='output')
-        percentage_success('./output/ns-ConversionStatus.xlsx')
+        percentage_success(output_file_name)
 
     @pytest.mark.travis
     def test_output_sanitization_17_1_1(self):
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        controller_version=setup.get('controller_version_v17'),
                        output_file_path='output')
-        percentage_success('./output/ns-ConversionStatus.xlsx',
-                            './output/ns-Output.json')
+        percentage_success(output_file_name, output_json_file_name)
 
     @pytest.mark.travis
     def test_excel_report_16_4(self):
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        controller_version=setup.get('controller_version_v16'),
                        output_file_path='output')
-        percentage_success('./output/ns-ConversionStatus.xlsx')
+        percentage_success(output_file_name)
 
     @pytest.mark.travis
     def test_output_sanitization_17_1_1(self):
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        controller_version=setup.get('controller_version_v17'),
                        output_file_path='output')
-        output_sanitization('./output/ns-ConversionStatus.xlsx',
-                            './output/ns-Output.json')
+        output_sanitization(output_file_name, output_json_file_name)
 
     @pytest.mark.travis
     def test_without_options_17_1_1(self):
@@ -140,16 +154,6 @@ class TestNetscalerConverter:
         """
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        controller_version=setup.get('controller_version_v16'))
-
-    @pytest.mark.skip_travis
-    def test_download(self):
-        """
-        Download Input File Flow.
-        """
-        netscaler_conv(ns_host_ip=setup.get('ns_host_ip'),
-                        ns_ssh_user=setup.get('ns_ssh_user'),
-                        ns_ssh_password=setup.get('ns_ssh_password'),
-                        controller_version=setup.get('controller_version_v17'))
 
     @pytest.mark.travis
     def test_no_profile_merge_17_1_1(self):
