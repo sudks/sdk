@@ -14,10 +14,24 @@ from avi.migrationtools.f5_converter.f5_converter import F5Converter
 from avi.migrationtools.test.common.excel_reader \
     import percentage_success, output_sanitization
 
+
 config_file=pytest.config.getoption("--config")
 
 with open(config_file) as f:
     file_attribute = yaml.load(f)
+
+output_file_name_v10=os.path.abspath(
+        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
+                             'f5_host_ip_v10'] + os.sep + 'output' + os.sep + 'bigip-ConversionStatus.xlsx'
+output_json_file_name_v10=os.path.abspath(
+        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
+                             'f5_host_ip_v10'] + os.sep + 'output' + os.sep + 'bigip-Output.json'
+output_file_name_v11=os.path.abspath(
+        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
+                             'f5_host_ip_v11'] + os.sep + 'output' + os.sep + 'bigip-ConversionStatus.xlsx'
+output_json_file_name_v11=os.path.abspath(
+        os.path.dirname(__file__)) + os.sep + 'output' + os.sep + file_attribute[
+                             'f5_host_ip_v11'] + os.sep + 'output' + os.sep + 'bigip-Output.json'
 
 setup = dict(
     controller_version_v16=file_attribute['controller_version_v16'],
@@ -61,7 +75,7 @@ setup = dict(
     f5_passphrase_file=os.path.abspath(
         os.path.dirname(__file__)) + os.sep + 'passphrase.yaml',
     f5_ansible_object=os.path.abspath
-   (os.path.join(os.path.dirname(__file__), 'output', 'avi_config_create_object.yml'))
+  (os.path.join(os.path.dirname(__file__), 'output', 'avi_config_create_object.yml'))
 )
 
 logging.basicConfig(filename="runlog.txt", level=logging.DEBUG)
@@ -104,59 +118,6 @@ def f5_conv(
 
 
 class TestF5Converter:
-    @pytest.mark.travis
-    def test_excel_report_v10(self):
-        f5_conv(bigip_config_file=setup.get('config_file_name_v10'),
-                 f5_config_version=setup.get('file_version_v10'),
-                 controller_version=setup.get('controller_version_v17'),
-                 output_file_path='output')
-        percentage_success('./output/bigip_v10-ConversionStatus.xlsx')
-        print setup.get('config_file_name_v11')
-
-    @pytest.mark.travis
-    def test_output_sanitization_v10(self):
-        f5_conv(bigip_config_file=setup.get('config_file_name_v10'),
-                 f5_config_version=setup.get('file_version_v10'),
-                 controller_version=setup.get('controller_version_v17'),
-                 output_file_path='output')
-        output_sanitization('./output/bigip_v10-ConversionStatus.xlsx',
-                             './output/bigip_v10-Output.json')
-
-    @pytest.mark.travis
-    def test_excel_report_v11(self):
-        f5_conv(bigip_config_file=setup.get('config_file_name_v11'),
-                 f5_config_version=setup.get('file_version_v11'),
-                 controller_version=setup.get('controller_version_v17'),
-                 output_file_path='output')
-        percentage_success('./output/bigip_v11-ConversionStatus.xlsx')
-
-    @pytest.mark.travis
-    def test_output_sanitization_v11(self):
-        f5_conv(bigip_config_file=setup.get('config_file_name_v11'),
-                 f5_config_version=setup.get('file_version_v11'),
-                 controller_version=setup.get('controller_version_v17'),
-                 output_file_path='output')
-        output_sanitization('./output/bigip_v11-ConversionStatus.xlsx',
-                             './output/bigip_v11-Output.json')
-
-    @pytest.mark.travis
-    def test_without_options_v10(self):
-        """
-        Check the Configuration file for V10
-        """
-        f5_conv(bigip_config_file=setup.get('config_file_name_v10'),
-                 controller_version=setup.get('controller_version_v17'),
-                 f5_config_version=setup.get('file_version_v10'),
-                 )
-
-    @pytest.mark.travis
-    def test_without_options_v11(self):
-        """
-        Check the configuration file for v11
-        """
-        f5_conv(bigip_config_file=setup.get('config_file_name_v11'),
-                 controller_version=setup.get('controller_version_v17'),
-                 f5_config_version=setup.get('file_version_v11'))
 
     @pytest.mark.skip_travis
     def test_download_v11(self):
@@ -179,6 +140,57 @@ class TestF5Converter:
                  f5_ssh_user=setup.get('f5_ssh_user_10'),
                  f5_ssh_password=setup.get('f5_ssh_password'),
                  f5_config_version=setup.get('file_version_v10'))
+
+    @pytest.mark.travis
+    def test_excel_report_v10(self):
+        f5_conv(bigip_config_file=setup.get('config_file_name_v10'),
+                 f5_config_version=setup.get('file_version_v10'),
+                 controller_version=setup.get('controller_version_v17'),
+                 output_file_path='output')
+        percentage_success(output_file_name_v10)
+
+    @pytest.mark.travis
+    def test_output_sanitization_v10(self):
+        f5_conv(bigip_config_file=setup.get('config_file_name_v10'),
+                 f5_config_version=setup.get('file_version_v10'),
+                 controller_version=setup.get('controller_version_v17'),
+                 output_file_path='output')
+        output_sanitization(output_file_name_v10, output_json_file_name_v10)
+
+    @pytest.mark.travis
+    def test_excel_report_v11(self):
+        f5_conv(bigip_config_file=setup.get('config_file_name_v11'),
+                 f5_config_version=setup.get('file_version_v11'),
+                 controller_version=setup.get('controller_version_v17'),
+                 output_file_path='output')
+        percentage_success(output_file_name_v11)
+
+    @pytest.mark.travis
+    def test_output_sanitization_v11(self):
+        f5_conv(bigip_config_file=setup.get('config_file_name_v11'),
+                 f5_config_version=setup.get('file_version_v11'),
+                 controller_version=setup.get('controller_version_v17'),
+                 output_file_path='output')
+        output_sanitization(output_file_name_v11, output_json_file_name_v11)
+
+    @pytest.mark.travis
+    def test_without_options_v10(self):
+        """
+        Check the Configuration file for V10
+        """
+        f5_conv(bigip_config_file=setup.get('config_file_name_v10'),
+                 controller_version=setup.get('controller_version_v17'),
+                 f5_config_version=setup.get('file_version_v10'),
+                 )
+
+    @pytest.mark.travis
+    def test_without_options_v11(self):
+        """
+        Check the configuration file for v11
+        """
+        f5_conv(bigip_config_file=setup.get('config_file_name_v11'),
+                 controller_version=setup.get('controller_version_v17'),
+                 f5_config_version=setup.get('file_version_v11'))
 
     @pytest.mark.travis
     def test_no_profile_merge_v10(self):
@@ -462,9 +474,9 @@ class TestF5Converter:
     #     Input File on Local Filesystem, Test for Controller v16.4.4
     #     AutoUpload Flow
     #     """
-    #     print(subprocess.check_output ('pip install avisdk --upgrade', shell=True))
-    #     print(subprocess.check_output ('/usr/local/bin/ansible-galaxy install avinetworks.avisdk', shell=True))
-    #     print(subprocess.check_output ('/usr/local/bin/ansible-playbook -s ' + setup.get ('f5_ansible_object') +
+    #     print(subprocess.check_output('pip install avisdk --upgrade', shell=True))
+    #     print(subprocess.check_output('/usr/local/bin/ansible-galaxy install avinetworks.avisdk', shell=True))
+    #     print(subprocess.check_output('/usr/local/bin/ansible-playbook -s ' + setup.get('f5_ansible_object') +
     #                                    ' --extra-vars "controller=10.10.24.16 username=admin password=Avi123$%"',
     #                                    shell=True))
 
