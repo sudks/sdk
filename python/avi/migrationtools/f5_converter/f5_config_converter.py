@@ -25,7 +25,8 @@ merge_object_mapping = {
     'network_profile': {'no': 0},
     'app_per_profile': {'no': 0},
     'pki_profile': {'no': 0},
-    'health_monitor': {'no': 0}
+    'health_monitor': {'no': 0},
+    'ssl_cert_key' : {'no': 0}
 }
 
 # Creating f5 object for util library.
@@ -60,7 +61,7 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
         # load the yaml file attribute in f5_attributes.
         f5_attributes = conv_const.init(version)
         merge_object_type = ['ApplicationProfile', 'NetworkProfile',
-                             'SSLProfile', 'PKIProfile',
+                             'SSLProfile', 'PKIProfile', 'SSLKeyAndCertificate',
                              'ApplicationPersistenceProfile', 'HealthMonitor']
         for key in merge_object_type:
             sys_dict[key] = []
