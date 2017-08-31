@@ -199,8 +199,8 @@ class ProfileConfigConv(object):
 
         if ssl_kc_obj:
             if 'dummy' not in ssl_kc_obj['name']:
-                conv_utils.update_skip_duplicates(
-                    ssl_kc_obj, avi_config['SSLKeyAndCertificate'], 'key_cert',
+                conv_utils.update_skip_duplicates(ssl_kc_obj,
+                    avi_config['SSLKeyAndCertificate'],'ssl_cert_key',
                     converted_objs, name, default_profile_name,
                     merge_object_mapping, None, self.prefix, sys_dict[
                     'SSLKeyAndCertificate'])
