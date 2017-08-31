@@ -138,7 +138,7 @@ class ApiSession(Session):
     def __init__(self, controller_ip, username, password=None, token=None,
                  tenant=None, tenant_uuid=None, verify=False, port=None,
                  timeout=60, api_version=None,
-                 retry_conxn_errors=False, datalog=False):
+                 retry_conxn_errors=False, data_log=False):
         """
         initialize new session object with authenticated token from login api.
         It also keeps a cache of user sessions that are cleaned up if inactive
@@ -169,7 +169,7 @@ class ApiSession(Session):
         self.retry_conxn_errors = retry_conxn_errors
         self.remote_api_version = {}
         self.user_hdrs = {}
-        self.datalog = datalog
+        self.data_log = data_log
 
         # Refer Notes 01 and 02
         if controller_ip.startswith('http'):
@@ -206,7 +206,7 @@ class ApiSession(Session):
     @staticmethod
     def get_session(controller_ip, username, password=None, token=None,
                     tenant=None, tenant_uuid=None, verify=False, port=None,
-                    timeout=60, retry_conxn_errors=False, api_version=None, datalog=False):
+                    timeout=60, retry_conxn_errors=False, api_version=None, data_log=False):
         """
         returns the session object for same user and tenant
         calls init if session dose not exist and adds it to session cache
@@ -243,7 +243,7 @@ class ApiSession(Session):
                 controller_ip, username, password, token=token, tenant=tenant,
                 tenant_uuid=tenant_uuid, verify=verify, port=port,
                 timeout=timeout, retry_conxn_errors=retry_conxn_errors,
-                api_version=api_version, datalog=datalog)
+                api_version=api_version, data_log=data_log)
             ApiSession.sessionDict[key] = \
                 {"api": user_session, "last_used": datetime.utcnow()}
         ApiSession._clean_inactive_sessions()
@@ -371,10 +371,14 @@ class ApiSession(Session):
             raise
         if not connection_error:
             responses = resp.json()
-            if self.datalog:
+            if self.data_log:
                 logger.debug('path: %s http_method: %s hdrs: %s params: '
                              '%s data: %s rsp: %s', fullpath, api_name.upper(),
                              api_hdrs, kwargs, data, resp.text)
+            else:
+                logger.debug('path: %s http_method: %s hdrs: %s params: '
+                             '%s data: %s', fullpath, api_name.upper(),
+                             api_hdrs, kwargs, data)
 
         if connection_error or resp.status_code in (401, 419):
             if connection_error:
