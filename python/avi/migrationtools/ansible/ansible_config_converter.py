@@ -6,8 +6,6 @@ Created on September 15, 2016
 '''
 
 import json
-from copy import deepcopy
-
 import logging
 import yaml
 import argparse
@@ -44,10 +42,7 @@ class AviAnsibleConverter(object):
                                           'ansible_order_constant.yml')
     with open(ansible_rest_file_path, 'r') as f:
         default_meta_order = yaml.load(f)
-    # print default_meta_order
     default_meta_order = default_meta_order['avi_resource_types']
-    # # print "$$$$$$$$$$$"
-    # print default_meta_order
 
     REF_MATCH = re.compile('^/api/[\w/.#&-]*#[\s|\w/.&-:]*$')
     # Modified REGEX
@@ -450,8 +445,7 @@ class AviAnsibleConverter(object):
                                prefix='Progress', suffix='')
             if self.filter_types and obj_type not in self.filter_types:
                 continue
-            # have a deepcopy for keys change
-            avi_cfg_temp = copy.deepcopy(self.avi_cfg)
+            # have a temp dict for accessing lowercase keys
             avi_cfg_temp = {k.lower(): v for k, v in self.avi_cfg.items()}
 
             if obj_type not in avi_cfg_temp or obj_type in self.skip_types:
