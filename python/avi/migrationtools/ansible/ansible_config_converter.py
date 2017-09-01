@@ -14,6 +14,7 @@ import argparse
 import re
 import requests
 import os
+import copy
 from avi.migrationtools.avi_orphan_object import \
      filter_for_vs, get_vs_ref, get_name_and_entity
 from avi.migrationtools.ansible.ansible_constant import \
@@ -43,6 +44,11 @@ class AviAnsibleConverter(object):
                                           'ansible_order_constant.yml')
     with open(ansible_rest_file_path, 'r') as f:
         default_meta_order = yaml.load(f)
+    # print default_meta_order
+    default_meta_order = default_meta_order['avi_resource_types']
+    # # print "$$$$$$$$$$$"
+    # print default_meta_order
+
     REF_MATCH = re.compile('^/api/[\w/.#&-]*#[\s|\w/.&-:]*$')
     # Modified REGEX
     REL_REF_MATCH = re.compile('/api/[A-z]+/\?[A-z]+\=[A-z]+\&[A-z]+\=.*')
@@ -444,9 +450,13 @@ class AviAnsibleConverter(object):
                                prefix='Progress', suffix='')
             if self.filter_types and obj_type not in self.filter_types:
                 continue
-            if obj_type not in self.avi_cfg or obj_type in self.skip_types:
+            # have a deepcopy for keys change
+            avi_cfg_temp = copy.deepcopy(self.avi_cfg)
+            avi_cfg_temp = {k.lower(): v for k, v in self.avi_cfg.items()}
+
+            if obj_type not in avi_cfg_temp or obj_type in self.skip_types:
                 continue
-            self.build_ansible_objects(obj_type, self.avi_cfg[obj_type], ad,
+            self.build_ansible_objects(obj_type, avi_cfg_temp[obj_type], ad,
                                        inuse_list)
         # if f5 username, password and server present then only generate
         #  playbook for traffic.
