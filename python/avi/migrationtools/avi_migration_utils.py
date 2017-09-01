@@ -229,7 +229,8 @@ class MigrationUtil(object):
         else:
             print '\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix)
 
-    def validate_value(self, entity_names, prop_name, value, limit_data, obj):
+    def validate_value(self, entity_names, prop_name, value, limit_data, obj,
+                       valname):
 
         """
         :param entity_names: list of name of the avi entity/object
@@ -245,8 +246,11 @@ class MigrationUtil(object):
             pr = val.get(obj, {})
             if not pr:
                 continue
-            LOG.debug("Validating property '%s'", ('-->'.join(entity_names) +
-                            '-->' + prop_name if entity_names else prop_name))
+            LOG.debug("Validating property '%s'", valname and entity_names and (
+                valname + '-->' + '-->'.join(entity_names) + '-->' +
+                prop_name) or valname and (valname + '-->' + prop_name) or
+                entity_names and ('-->'.join(entity_names) + '-->' + prop_name)
+                or prop_name)
             p_key = self.get_to_prop(val, pr, entity_names, prop_name,
                                      limit_data)
             typ = p_key.get('py_type') if p_key else None
@@ -255,8 +259,12 @@ class MigrationUtil(object):
         else:
             LOG.debug("Property '%s' is not present in generated yaml, reason "
                    "being the property doesn't have any attribute from the "
-                   "list %s", prop_name, str(['default_value', 'range',
-                                                'special_values', 'ref_type']))
+                   "list %s", (valname and entity_names and (valname + '-->' +
+                   '-->'.join(entity_names) + '-->' + prop_name) or valname and
+                   (valname + '-->' + prop_name) or entity_names and (
+                   '-->'.join(entity_names) + '-->' + prop_name) or prop_name),
+                   str(['default_value', 'range', 'special_values',
+                   'ref_type']))
             return None, None
         if new_value is not None:
             if type(new_value) == unicode:
@@ -307,7 +315,12 @@ class MigrationUtil(object):
                           str(new_value))
             else:
                 valid = True
-                LOG.debug("Property '%s' not mandatory", prop_name)
+                LOG.debug("Property '%s' not mandatory", valname and
+                          entity_names and (valname + '-->' + '-->'.join(
+                          entity_names) + '-->' + prop_name) or valname and (
+                          valname + '-->' + prop_name) or entity_names and (
+                          '-->'.join(entity_names) + '-->' + prop_name) or
+                          prop_name)
 
         return valid, new_value
 
@@ -354,9 +367,10 @@ class MigrationUtil(object):
                         heir = []
                         LOG.debug("Validating %s of Object %s", val['name'],
                                   obj)
-                        self.validate_prop(val, heir, limit_data, obj)
+                        self.validate_prop(val, heir, limit_data, obj,
+                                           val['name'])
 
-    def validate_prop(self, dictval, heir, limit_data, obj):
+    def validate_prop(self, dictval, heir, limit_data, obj, valname=None):
 
         for k, v in dictval.iteritems():
             if k in ['tenant_ref', 'name', 'cloud_ref', 'health_monitor_refs',
@@ -365,18 +379,26 @@ class MigrationUtil(object):
                      'pki_profile_ref', 'pool_ref', 'pool_group_ref',
                      'http_policy_set_ref', 'ssl_key_and_certificate_refs',
                      'vsvip_ref', 'description']:
-                LOG.debug("Skipping validation checks for '%s'", k)
+                LOG.debug("Skipping validation checks for '%s'", valname and
+                          heir and (valname + '-->' + '-->'.join(heir) + '-->'
+                          + k) or valname and (valname + '-->' + k) or heir and
+                          ('-->'.join(heir) + '-->' + k) or k)
                 continue
             else:
                 if isinstance(v, list):
                     for listval in v:
                         if isinstance(listval, dict):
                             k not in heir and heir.append(k) or None
-                            self.validate_prop(listval, heir, limit_data, obj)
+                            self.validate_prop(listval, heir, limit_data, obj,
+                                               valname)
                             heir and heir.pop() or None
                         else:
                             LOG.debug("Property '%s' has value as a list %s, "
-                                  "not supported currently", k, str(v))
+                                  "not supported currently", valname and heir
+                                  and (valname + '-->' + '-->'.join(heir) +
+                                  '-->' + k) or valname and (valname + '-->' +
+                                  k) or heir and ('-->'.join(heir) + '-->' + k)
+                                  or k, str(v))
                             #valid, val = self.validate_value(heir, k, listval,
                                                     #limit_data)
                             #if valid is False:
@@ -384,14 +406,18 @@ class MigrationUtil(object):
                                 #dictval[k] = val
                 elif isinstance(v, dict):
                     k not in heir and heir.append(k) or None
-                    self.validate_prop(v, heir, limit_data, obj)
+                    self.validate_prop(v, heir, limit_data, obj, valname)
                     heir and heir.pop() or None
                 else:
                     valid, val = self.validate_value(heir, k, v, limit_data,
-                                                     obj)
+                                                     obj, valname)
                     if valid is False:
                         LOG.debug("Correcting the value for '%s' from '%s' to "
-                                  "'%s'", k, str(v), str(val))
+                                  "'%s'", (valname and heir and (valname +
+                                  '-->' + '-->'.join(heir) + '-->' + k) or
+                                  valname and (valname + '-->' + k) or heir and
+                                  ('-->'.join(heir) + '-->' + k) or k), str(v),
+                                  str(val))
                         dictval[k] = val
 
     def check_certificate_expiry(self, input_dir, cert_file_name):
