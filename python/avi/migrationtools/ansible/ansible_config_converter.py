@@ -12,7 +12,7 @@ import argparse
 import re
 import requests
 import os
-import copy
+from copy import deepcopy
 from avi.migrationtools.avi_orphan_object import \
      filter_for_vs, get_vs_ref, get_name_and_entity
 from avi.migrationtools.ansible.ansible_constant import \
