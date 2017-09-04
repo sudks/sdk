@@ -242,15 +242,15 @@ class MigrationUtil(object):
         """
         valid = None
         new_value = value
+        msgvar = valname and entity_names and '%s-->%s-->%s' % (valname,
+                 '-->'.join(entity_names), prop_name) or valname and '%s-->%s' \
+                 % (valname, prop_name) or entity_names and '%s-->%s' % (
+                 '-->'.join(entity_names), prop_name) or '%s' % prop_name
         for key, val in limit_data.iteritems():
             pr = val.get(obj, {})
             if not pr:
                 continue
-            LOG.debug("Validating property '%s'", valname and entity_names and (
-                valname + '-->' + '-->'.join(entity_names) + '-->' +
-                prop_name) or valname and (valname + '-->' + prop_name) or
-                entity_names and ('-->'.join(entity_names) + '-->' + prop_name)
-                or prop_name)
+            LOG.debug("Validating property '%s'", msgvar)
             p_key = self.get_to_prop(val, pr, entity_names, prop_name,
                                      limit_data)
             typ = p_key.get('py_type') if p_key else None
@@ -259,12 +259,8 @@ class MigrationUtil(object):
         else:
             LOG.debug("Property '%s' is not present in generated yaml, reason "
                    "being the property doesn't have any attribute from the "
-                   "list %s", (valname and entity_names and (valname + '-->' +
-                   '-->'.join(entity_names) + '-->' + prop_name) or valname and
-                   (valname + '-->' + prop_name) or entity_names and (
-                   '-->'.join(entity_names) + '-->' + prop_name) or prop_name),
-                   str(['default_value', 'range', 'special_values',
-                   'ref_type']))
+                   "list %s", msgvar, str(['default_value', 'range',
+                   'special_values', 'ref_type']))
             return None, None
         if new_value is not None:
             if type(new_value) == unicode:
@@ -315,12 +311,7 @@ class MigrationUtil(object):
                           str(new_value))
             else:
                 valid = True
-                LOG.debug("Property '%s' not mandatory", valname and
-                          entity_names and (valname + '-->' + '-->'.join(
-                          entity_names) + '-->' + prop_name) or valname and (
-                          valname + '-->' + prop_name) or entity_names and (
-                          '-->'.join(entity_names) + '-->' + prop_name) or
-                          prop_name)
+                LOG.debug("Property '%s' not mandatory", msgvar)
 
         return valid, new_value
 
@@ -379,10 +370,11 @@ class MigrationUtil(object):
                      'pki_profile_ref', 'pool_ref', 'pool_group_ref',
                      'http_policy_set_ref', 'ssl_key_and_certificate_refs',
                      'vsvip_ref', 'description']:
-                LOG.debug("Skipping validation checks for '%s'", valname and
-                          heir and (valname + '-->' + '-->'.join(heir) + '-->'
-                          + k) or valname and (valname + '-->' + k) or heir and
-                          ('-->'.join(heir) + '-->' + k) or k)
+                msvar = valname and heir and '%s-->%s-->%s' % (valname,
+                        '-->'.join(heir), k) or valname and '%s-->%s' % (
+                        valname, k) or heir and '%s-->%s' % ('-->'.join(heir),
+                        k) or '%s' % k
+                LOG.debug("Skipping validation checks for '%s'", msvar)
                 continue
             else:
                 if isinstance(v, list):
@@ -393,12 +385,13 @@ class MigrationUtil(object):
                                                valname)
                             heir and heir.pop() or None
                         else:
+                            mgvar = valname and heir and '%s-->%s-->%s' % (
+                                    valname, '-->'.join(heir), k) or valname \
+                                    and '%s-->%s' % (valname, k) or heir and \
+                                    '%s-->%s' % ('-->'.join(heir), k) or \
+                                    '%s' % k
                             LOG.debug("Property '%s' has value as a list %s, "
-                                  "not supported currently", valname and heir
-                                  and (valname + '-->' + '-->'.join(heir) +
-                                  '-->' + k) or valname and (valname + '-->' +
-                                  k) or heir and ('-->'.join(heir) + '-->' + k)
-                                  or k, str(v))
+                                  "not supported currently", mgvar, str(v))
                             #valid, val = self.validate_value(heir, k, listval,
                                                     #limit_data)
                             #if valid is False:
@@ -412,12 +405,12 @@ class MigrationUtil(object):
                     valid, val = self.validate_value(heir, k, v, limit_data,
                                                      obj, valname)
                     if valid is False:
+                        mvar = valname and heir and '%s-->%s-->%s' % (valname,
+                               '-->'.join(heir), k) or valname and '%s-->%s' % (
+                               valname, k) or heir and '%s-->%s' % (
+                               '-->'.join(heir), k) or '%s' % k
                         LOG.debug("Correcting the value for '%s' from '%s' to "
-                                  "'%s'", (valname and heir and (valname +
-                                  '-->' + '-->'.join(heir) + '-->' + k) or
-                                  valname and (valname + '-->' + k) or heir and
-                                  ('-->'.join(heir) + '-->' + k) or k), str(v),
-                                  str(val))
+                                  "'%s'", mvar, str(v), str(val))
                         dictval[k] = val
 
     def check_certificate_expiry(self, input_dir, cert_file_name):
