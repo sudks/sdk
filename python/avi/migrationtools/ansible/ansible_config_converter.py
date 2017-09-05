@@ -37,13 +37,6 @@ mg_util = MigrationUtil()
 class AviAnsibleConverter(object):
     skip_fields = SKIP_FIELDS
     skip_types = set(DEFAULT_SKIP_TYPES)
-    # Read file to get meta order.
-    ansible_rest_file_path = os.path.join(os.path.dirname(__file__),
-                                          'ansible_order_constant.yml')
-    with open(ansible_rest_file_path, 'r') as f:
-        default_meta_order = yaml.load(f)
-    default_meta_order = default_meta_order['avi_resource_types']
-
     REF_MATCH = re.compile('^/api/[\w/.#&-]*#[\s|\w/.&-:]*$')
     # Modified REGEX
     REL_REF_MATCH = re.compile('/api/[A-z]+/\?[A-z]+\=[A-z]+\&[A-z]+\=.*')
@@ -66,6 +59,14 @@ class AviAnsibleConverter(object):
                  else set(filter_types.split(',')))
         else:
             self.filter_types = None
+            
+        # Read file to get meta order.
+        self.ansible_rest_file_path = os.path.join(os.path.dirname(__file__),
+                                          'ansible_order_constant.yml')
+
+        with open(self.ansible_rest_file_path, 'r') as f:
+            self.default_meta_order = yaml.load(f)
+        
 
     def transform_ref(self, x, obj):
         """
@@ -433,7 +434,7 @@ class AviAnsibleConverter(object):
         generate_traffic_dict = deepcopy(ansible_dict)
         meta = self.avi_cfg['META']
         if 'order' not in meta:
-            meta['order'] = self.default_meta_order
+            meta['order'] = self.default_meta_order['avi_resource_types']
         total_size = len(meta['order'])
         progressbar_count = 0
         print "Conversion Started For Ansible Create Object..."
