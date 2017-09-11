@@ -74,10 +74,6 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
                 for key in merge_object_type:
                     sys_dict[key] = prof_data.get(key, [])
 
-        policy_conv = PolicyConfigConv()
-        policy_conv.convert(f5_config, avi_config_dict, tenant)
-
-
         profile_conv = ProfileConfigConv.get_instance(
             version, f5_attributes, object_merge_check, prefix, keypassphrase)
         profile_conv.convert(f5_config, avi_config_dict, input_dir, user_ignore,
@@ -98,6 +94,10 @@ def convert(f5_config, output_dir, vs_state, input_dir, version,
             version, f5_attributes, prefix, object_merge_check)
         persist_conv.convert(f5_config, avi_config_dict, user_ignore, tenant,
                              merge_object_mapping, sys_dict)
+
+        policy_conv = PolicyConfigConv.get_instance(version, f5_attributes,
+                                                    prefix)
+        policy_conv.convert(f5_config, avi_config_dict, tenant)
 
         vs_conv = VSConfigConv.get_instance(version, f5_attributes, prefix,
                                             con_snatpool)
