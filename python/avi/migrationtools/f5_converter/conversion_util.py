@@ -610,12 +610,12 @@ class F5Util(MigrationUtil):
         return services_obj, ip_addr, updated_vsvip_ref, vrf_ref
 
 
-    def clone_pool(self, pool_name, vs_name, avi_pool_list, tenant=None):
+    def clone_pool(self, pool_name, clone_for, avi_pool_list, tenant=None):
         """
         If pool is shared with other VS pool is cloned for other VS as Avi dose not
         support shared pools with new pool name as <pool_name>-<vs_name>
         :param pool_name: Name of the pool to be cloned
-        :param vs_name: Name of the VS for pool to be cloned
+        :param clone_for: Name of the VS for pool to be cloned
         :param avi_pool_list: new pool to be added to this list
         :param tenant: if pool is shared across partition then coned for tenant
         :return: new pool object
@@ -627,7 +627,7 @@ class F5Util(MigrationUtil):
                 new_pool = copy.deepcopy(pool)
                 break
         if new_pool:
-            new_pool["name"] = pool_name + "-" + vs_name
+            new_pool["name"] = pool_name + "-" + clone_for
             if tenant:
                 new_pool["tenant_ref"] = self.get_object_ref(tenant, 'tenant')
             # removing config added from VS config to pool
@@ -1067,13 +1067,13 @@ class F5Util(MigrationUtil):
 
         return ref, is_pool_group
 
-    def clone_pool_group(self, pool_group_name, vs_name, avi_config, tenant='admin',
-                         cloud_name='Default-Cloud'):
+    def clone_pool_group(self, pool_group_name, clone_for, avi_config,
+                         tenant='admin', cloud_name='Default-Cloud'):
         """
         If pool is shared with other VS pool is cloned for other VS as Avi dose not
         support shared pools with new pool name as <pool_name>-<vs_name>
         :param pool_group_name: Name of the pool group to be cloned
-        :param vs_name: Name of the VS for pool group to be cloned
+        :param clone_for: Name of the object/entity for pool group to be cloned
         :param avi_config: new pool to be added to avi config
         :param tenant: if f5 pool is shared across partition then coned for tenant
         :return: new pool group name
@@ -1085,14 +1085,14 @@ class F5Util(MigrationUtil):
                 new_pool_group = copy.deepcopy(pool_group)
                 break
         if new_pool_group:
-            new_pool_group["name"] = pool_group_name + "-" + vs_name
+            new_pool_group["name"] = pool_group_name + "-" + clone_for
             pg_ref = new_pool_group["name"]
             new_pool_group["tenant_ref"] = self.get_object_ref(tenant, 'tenant')
             avi_config['PoolGroup'].append(new_pool_group)
             for member in new_pool_group['members']:
                 pool_name = self.get_name(member['pool_ref'])
                 pool_name = self.clone_pool(
-                    pool_name, vs_name, avi_config['Pool'], tenant)
+                    pool_name, clone_for, avi_config['Pool'], tenant)
                 member['pool_ref'] = self.get_object_ref(
                     pool_name, 'pool', tenant=tenant, cloud_name=cloud_name)
         return pg_ref
@@ -1526,7 +1526,8 @@ class F5Util(MigrationUtil):
                             for http_req in \
                                     each_http_policy['http_request_policy'][
                                         'rules']:
-                                if http_req.get('switching_action'):
+                                if http_req.get('switching_action',{}).get(
+                                        'pool_group_ref'):
                                     pool_group_name = \
                                         self.get_name(http_req['switching_action']
                                                  ['pool_group_ref'])
@@ -1818,6 +1819,46 @@ class F5Util(MigrationUtil):
             pool_obj[0]['vrf_ref'] = vrf_ref
             LOG.debug("Added vrf ref to the pool %s", pool_ref)
 
+    def clone_http_policy_set(self, policy, vs_name, avi_config, tenant_name,
+                              cloud_name):
+        """
+        This function clone pool reused in context switching rule
+        :param policy: name of policy
+        :param vs_name: vs name
+        :param prefix: clone for
+        :param avi_config: avi config dict
+        :param userprefix: prefix for objects
+        :return:None
+        """
+
+        policy_name = policy['name']
+        clone_policy = copy.deepcopy(policy)
+        for rule in clone_policy['http_request_policy']['rules']:
+            if rule.get('switching_action'):
+                if rule['switching_action'].get('pool_group_ref'):
+                    pool_group_ref = self.get_name(rule['switching_action'][
+                                                       'pool_group_ref'])
+                    pool_group_ref = self.clone_pool_group(pool_group_ref,
+                                        policy_name, avi_config, tenant_name,
+                                                                cloud_name)
+                    if pool_group_ref:
+                        updated_pool_group_ref = self.get_object_ref(
+                            pool_group_ref, conv_const.OBJECT_TYPE_POOL_GROUP,
+                            tenant_name, cloud_name)
+                        rule['switching_action']['pool_group_ref'] = \
+                            updated_pool_group_ref
+                elif rule['switching_action'].get('pool_ref'):
+                    pool_ref = self.get_name(rule['switching_action'][
+                                                 'pool_ref'])
+                    pool_ref = self.clone_pool(pool_ref, policy_name,
+                                               avi_config['Pool'], tenant_name)
+                    if pool_ref:
+                        updated_pool_ref = self.get_object_ref(pool_ref,
+                                            conv_const.OBJECT_TYPE_POOL,
+                                            tenant_name, cloud_name)
+                        rule['switching_action']['pool_ref'] = updated_pool_ref
+        clone_policy['name'] += '-%s-clone' % vs_name
+        return clone_policy
 
 
 

@@ -10,6 +10,7 @@ conv_utils = F5Util()
 parameters_dict = {'starts-with': 'BEGINS_WITH', 'equals': 'EQUALS',
                    'contains': 'CONTAINS', 'ends-with': 'ENDS_WITH',
                    'not': 'DOES_NOT_'}
+used_pools = {}
 
 
 class PolicyConfigConv(object):
@@ -23,13 +24,15 @@ class PolicyConfigConv(object):
     def convert(self, f5_config, avi_config, tenant):
         # Get the policy config from converted parsing
         policy_config = f5_config.get("policy", {})
-        avi_config['HTTPPolicySet'] = []
         for each_policy in policy_config:
             LOG.debug("Conversion started for the policy %s", each_policy)
             policy_name = conv_utils.get_tenant_ref(each_policy)[1]
+            if self.prefix:
+                policy_name = '%s-%s' % (self.prefix, policy_name)
             httppolicy = dict()
-            self.create_rules(policy_config, httppolicy, tenant, avi_config,
-                              each_policy, policy_name)
+            config = policy_config[each_policy]
+            self.create_rules(config, httppolicy, tenant, avi_config,
+                              policy_name)
             if httppolicy.get('http_request_policy', httppolicy.get(
                     'http_response_policy')):
                 httppolicy['name'] = policy_name
@@ -46,14 +49,13 @@ class PolicyConfigConv(object):
                 LOG.debug('Skipping:Conversion unsuccessful for the policy %s',
                           each_policy)
 
-    def create_rules(self, policy_config, httppolicy, tenant, avi_config,
-                     each_policy, policy_name):
+    def create_rules(self, config, httppolicy, tenant, avi_config,
+                     policy_name):
         """
         :param config:
         :param httppolicy:
         :return:
         """
-        config = policy_config[each_policy]
         if 'rules' in config:
             for index, each_rule in enumerate(config['rules']):
                 if config['rules'][each_rule].get('conditions') and config[
@@ -66,22 +68,22 @@ class PolicyConfigConv(object):
                     pol_type, match, skip_match = self.create_match_rule(
                         match_rule, avi_config, tenant, rule_name, each_rule)
                     if not match:
-                        LOG.debug('All match conditions not supproted for rule '
-                                  '%s in policy %s', each_rule, each_policy)
+                        LOG.debug('All match conditions not supported for rule '
+                                  '%s in policy %s', each_rule, policy_name)
                         continue
                     else:
                         LOG.debug('Rule match successfully converted for rule '
-                                  '%s in policy %s', each_rule, each_policy)
+                                  '%s in policy %s', each_rule, policy_name)
                     action_rule = config['rules'][each_rule]['actions']
                     actions, skip_action = self.create_action_rule(action_rule,
-                                            avi_config, each_rule)
+                                            avi_config, each_rule, policy_name)
                     if not actions:
-                        LOG.debug('All actions not supproted for rule %s '
-                                  'in policy %s', each_rule, each_policy)
+                        LOG.debug('All actions not supported for rule %s '
+                                  'in policy %s', each_rule, policy_name)
                         continue
                     else:
                         LOG.debug('Rule action successfully converted for rule '
-                                  '%s in policy %s', each_rule, each_policy)
+                                  '%s in policy %s', each_rule, policy_name)
                     rule_dict.update({'match': match})
                     for act in actions:
                         rule_dict.update(act)
@@ -94,15 +96,15 @@ class PolicyConfigConv(object):
                             'rules'].append(rule_dict)
                 elif config['rules'][each_rule].get('conditions'):
                     LOG.debug('Skipping rule:No action found for rule %s in '
-                              'policy %s', each_rule, each_policy)
+                              'policy %s', each_rule, policy_name)
                 elif config['rules'][each_rule].get('actions'):
                     LOG.debug('Skipping rule:No match condition found for rule '
-                              '%s in policy %s', each_rule, each_policy)
+                              '%s in policy %s', each_rule, policy_name)
                 else:
                     LOG.debug('Skipping rule:Match conditions and actions are '
-                              'missing for policy %s', each_policy)
+                              'missing for policy %s', policy_name)
         else:
-            LOG.debug('No rule found for policy %s', each_policy)
+            LOG.debug('No rule found for policy %s', policy_name)
 
     def create_match_rule(self, match_dict, avi_config, tenant,
                           rule_name, each_rule):
@@ -304,9 +306,9 @@ class PolicyConfigConv(object):
                     match_criteria = [key for key in result if key in
                                       parameters_dict]
                     if len(match_criteria) > 1:
-                        host_header['match_criteria'] = 'HDR_%s%s' % (parameters_dict
-                            [match_criteria[0]], (parameters_dict[match_criteria
-                            [1]].replace('S', '')))
+                        host_header['match_criteria'] = 'HDR_%s%s' % (
+                           parameters_dict[match_criteria[0]], (
+                           parameters_dict[match_criteria[1]].replace('S', '')))
                     elif len(match_criteria):
                         if 'not' in match_criteria:
                             host_header['match_criteria'] = 'HDR_%sEQUAL' % \
@@ -446,18 +448,18 @@ class PolicyConfigConv(object):
                     match_criteria = [key for key in result if key in
                                         parameters_dict.keys()]
                     if len(match_criteria) > 1:
-                        path_query['match_criteria'] = 'HDR_%s%s' % (
+                        path_query['match_criteria'] = '%s%s' % (
                            parameters_dict[match_criteria[0]], (
                            parameters_dict[match_criteria[1]].replace('S', '')))
                     elif len(match_criteria):
                         if 'not' in match_criteria:
-                            path_query['match_criteria'] = 'HDR_%sEQUAL' % \
+                            path_query['match_criteria'] = '%sEQUAL' % \
                                               parameters_dict[match_criteria[0]]
                         else:
-                            path_query['match_criteria'] = 'HDR_%s' % \
+                            path_query['match_criteria'] = '%s' % \
                                               parameters_dict[match_criteria[0]]
                     else:
-                        path_query['match_criteria'] = 'HDR_EQUALS'
+                        path_query['match_criteria'] = 'EQUALS'
                     match["path"] = path_query
                 else:
                     if 'extension' in result:
@@ -580,11 +582,13 @@ class PolicyConfigConv(object):
                                       'mandatory for operand %s', op)
                             continue
                         status = {
-                            'status_codes': [val for val in result[
-                                            'values'].keys() if '-' not in val],
                             'match_criteria': 'IS_NOT_IN' if 'not' in result
                                                 else 'IS_IN'
                         }
+                        status_code = [val for val in result[
+                                            'values'].keys() if '-' not in val]
+                        if status_code:
+                            status['status_codes'] = status_code
                         ranges = [{'begin': stat_code.split('-')[0], 'end':
                                   stat_code.split('-')[1]} for stat_code in
                                   result['values'].keys() if '-' in stat_code]
@@ -628,7 +632,8 @@ class PolicyConfigConv(object):
                     })
         return pol_type, match, skip_match
 
-    def create_action_rule(self, action_dict, avi_config, each_rule):
+    def create_action_rule(self, action_dict, avi_config, each_rule,
+                           policy_name):
         """
 
         :param action_dict:
@@ -637,7 +642,7 @@ class PolicyConfigConv(object):
         :return:
         """
         action_list = []
-        skip_actions = {}
+        skip_actions = dict()
         skip_actions[each_rule] = []
         LOG.debug('Started making action for rule %s', each_rule)
         for each_index in action_dict:
@@ -662,6 +667,8 @@ class PolicyConfigConv(object):
                             }
                         }
                         poolname = conv_utils.get_tenant_ref(result['pool'])[1]
+                        if self.prefix:
+                            poolname = '%s-%s' % (self.prefix, poolname)
                         poolobj = [obj for obj in avi_config['Pool'] if
                                    poolname == obj['name']]
                         if poolobj:
@@ -670,6 +677,10 @@ class PolicyConfigConv(object):
                             action['switching_action']['pool_ref'] = \
                                 conv_utils.get_object_ref(
                                 poolobj[0]['name'], 'pool')
+                            if poolname not in used_pools:
+                                used_pools[poolname] = set(policy_name)
+                            else:
+                                used_pools[poolname].add(policy_name)
                         else:
                             pgobj = [ob for ob in avi_config.get['PoolGroup']
                                      if poolname == ob['name']]
@@ -679,9 +690,14 @@ class PolicyConfigConv(object):
                                 action['switching_action']['pool_group_ref'] = \
                                     conv_utils.get_object_ref(pgobj[0]['name'],
                                                               'poolgroup')
+                                if poolname not in used_pools:
+                                    used_pools[poolname] = set(policy_name)
+                                else:
+                                    used_pools[poolname].add(policy_name)
                             else:
                                 LOG.debug("No pool/poolgroup '%s' found",
                                           poolname)
+                                continue
                     else:
                         if 'clone-pool' in result:
                             skip_parameter.append('clone-pool')
@@ -767,6 +783,8 @@ class PolicyConfigConv(object):
                     action['hdr_action'][0]['hdr']['value'] = {}
                     action['hdr_action'][0]['hdr']['value']['val'] = result[
                                                                         'value']
+                else:
+                    continue
             elif 'http-reply' in result:
                 target = 'http-reply'
                 if pol_type == 'request':
@@ -825,8 +843,7 @@ class PolicyConfigConvV11(PolicyConfigConv):
         # self.unsupported_types = f5_policy_attributes['']
         # self.vs_na_attr = f5_policy_attributes['']
         # Added prefix for objects
-        # self.prefix = prefix
-        pass
+        self.prefix = prefix
 
 
 class PolicyConfigConvV10(PolicyConfigConv):
@@ -836,5 +853,4 @@ class PolicyConfigConvV10(PolicyConfigConv):
         # self.unsupported_types = f5_policy_attributes['']
         # self.vs_na_attr = f5_policy_attributes['']
         # Added prefix for objects
-        # self.prefix = prefix
-        pass
+        self.prefix = prefix
