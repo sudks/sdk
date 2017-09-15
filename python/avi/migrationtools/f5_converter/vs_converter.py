@@ -338,11 +338,15 @@ class VSConfigConv(object):
                               'name'] == pol_name]
                 if policy_obj:
                     if pol_name in used_policy:
+                        LOG.debug('Cloning the policy %s for vs %s',
+                                  pol_name, vs_name)
                         clone_policy = conv_utils.clone_http_policy_set(
                             policy_obj[0], vs_name, avi_config, tenant,
                             cloud_name)
                         pol_name = clone_policy['name']
                         avi_config['HTTPPolicySet'].append(clone_policy)
+                        LOG.debug('Policy cloned %s for vs %s', pol_name,
+                                  vs_name)
                     used_policy.append(pol_name)
                     pol = {
                         'index': 11,
@@ -357,17 +361,30 @@ class VSConfigConv(object):
                                   'http_policies']])
                         pol['index'] = ind + 1
                     vs_obj['http_policies'].append(pol)
-            if pool_ref and used_pools.get(pool_ref):
-                not_same = [pol_obj for pol_obj in used_pools[pool_ref] if
-                            pol_obj not in vs_policies]
+            p_ref = None
+            if is_pool_group:
+                p_ref = conv_utils.get_object_ref(pool_ref, 'poolgroup',
+                                                   tenant=p_tenant)
+            elif pool_ref:
+                p_ref = conv_utils.get_object_ref(pool_ref, 'pool',
+                                                  tenant=p_tenant)
+            if p_ref and used_pools.get(p_ref):
+                not_same = [pol_obj for pol_obj in used_pools[p_ref] if pol_obj
+                            not in vs_policies]
                 if not_same:
                     if is_pool_group:
+                        LOG.debug('Pool group %s attached to vs %s is shared '
+                                  'with policy %s of another vs', pool_ref,
+                                  vs_name, str(not_same))
                         pool_ref = conv_utils.clone_pool_group(pool_ref,
-                                        vs_name, avi_config, tenant,
+                                        vs_name, avi_config, p_tenant,
                                         cloud_name=cloud_name)
                     else:
+                        LOG.debug('Pool %s attached to vs %s is shared with '
+                                  'policy %s of another vs', pool_ref,
+                                  vs_name, str(not_same))
                         pool_ref = conv_utils.clone_pool(pool_ref, vs_name,
-                                                   avi_config['Pool'], tenant)
+                                                   avi_config['Pool'], p_tenant)
         if is_pool_group:
             vs_obj['pool_group_ref'] = conv_utils.get_object_ref(
                 pool_ref, 'poolgroup', tenant=tenant, cloud_name=cloud_name)
@@ -392,7 +409,13 @@ class VSConfigConv(object):
             vs_obj['client_auth'] = realm
 
         if policy_set:
-            vs_obj['http_policies'] = policy_set
+            if not vs_obj.get('http_policies'):
+                vs_obj['http_policies'] = []
+            else:
+                ind = max([pol_index['index'] for pol_index in vs_obj[
+                          'http_policies']])
+                policy_set[0]['index'] = ind + 1
+            vs_obj['http_policies'].append(policy_set[0])
 
         source = f5_vs.get('source', '0.0.0.0/0')
         if '%' in source:
