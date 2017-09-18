@@ -22,6 +22,13 @@ class PolicyConfigConv(object):
             return PolicyConfigConvV11(prefix)
 
     def convert(self, f5_config, avi_config, tenant_ref):
+        """
+        Main method for conversion of policy
+        :param f5_config:
+        :param avi_config:
+        :param tenant_ref:
+        :return:
+        """
         # Get the policy config from converted parsing
         policy_config = f5_config.pop("policy", {})
         for each_policy in policy_config:
@@ -33,8 +40,8 @@ class PolicyConfigConv(object):
                 policy_name = '%s-%s' % (self.prefix, policy_name)
             httppolicy = dict()
             config = policy_config[each_policy]
-            skip = self.create_rules(config, httppolicy, tenant, avi_config,
-                              policy_name)
+            skip = self.create_rules(config, httppolicy, avi_config,
+                                     policy_name)
             if httppolicy.get('http_request_policy', httppolicy.get(
                     'http_response_policy')):
                 httppolicy['name'] = policy_name
@@ -49,19 +56,23 @@ class PolicyConfigConv(object):
                     else:
                         conv_status = {'status': final.STATUS_SUCCESSFUL}
                 conv_utils.add_conv_status('policy', None, each_policy,
-                                           conv_status, httppolicy)
+                                           conv_status,
+                                           [{'policy_set': httppolicy}])
             else:
                 conv_utils.add_conv_status("policy", None, each_policy,
                                         {'status': final.STATUS_SKIPPED}, skip)
                 LOG.debug('Skipping:Conversion unsuccessful for the policy %s',
                           each_policy)
 
-    def create_rules(self, config, httppolicy, tenant, avi_config,
+    def create_rules(self, config, httppolicy, avi_config,
                      policy_name):
         """
+        This method create rules for each policy
         :param config:
         :param httppolicy:
-        :return:
+        :param avi_config:
+        :param policy_name:
+        :return: skip elements for rule or message
         """
         if 'rules' in config:
             skip_rule = dict()
@@ -134,8 +145,12 @@ class PolicyConfigConv(object):
 
     def create_match_rule(self, match_dict, avi_config, rule_name, each_rule):
         """
+        This method creates match dict for each rule
         :param match_dict:
-        :return:
+        :param avi_config:
+        :param rule_name:
+        :param each_rule:
+        :return: policy type, match dict and skip elements
         """
         pol_type = None
         match = {}
@@ -793,11 +808,12 @@ class PolicyConfigConv(object):
     def create_action_rule(self, action_dict, avi_config, each_rule,
                            policy_name):
         """
-
+        This method create action dict for each rule
         :param action_dict:
         :param avi_config:
         :param each_rule:
-        :return:
+        :param policy_name:
+        :return: action list, skip list for action and log action dict
         """
         action_list = []
         skip_actions = []

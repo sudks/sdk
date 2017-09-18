@@ -333,34 +333,8 @@ class VSConfigConv(object):
                                conv_utils.get_tenant_ref(name)[1]) if
                                self.prefix else conv_utils.get_tenant_ref(
                                name)[1] for name in f5_vs['policies'].keys()]
-            for pol_name in vs_policies:
-                policy_obj = [ob for ob in avi_config['HTTPPolicySet'] if ob[
-                              'name'] == pol_name]
-                if policy_obj:
-                    if pol_name in used_policy:
-                        LOG.debug('Cloning the policy %s for vs %s',
-                                  pol_name, vs_name)
-                        clone_policy = conv_utils.clone_http_policy_set(
-                            policy_obj[0], vs_name, avi_config, tenant,
-                            cloud_name)
-                        pol_name = clone_policy['name']
-                        avi_config['HTTPPolicySet'].append(clone_policy)
-                        LOG.debug('Policy cloned %s for vs %s', pol_name,
-                                  vs_name)
-                    used_policy.append(pol_name)
-                    pol = {
-                        'index': 11,
-                        'http_policy_set_ref':
-                            conv_utils.get_object_ref(pol_name, 'httppolicyset',
-                                                      tenant=tenant)
-                    }
-                    if not vs_obj.get('http_policies'):
-                        vs_obj['http_policies'] = []
-                    else:
-                        ind = max([pol_index['index'] for pol_index in vs_obj[
-                                  'http_policies']])
-                        pol['index'] = ind + 1
-                    vs_obj['http_policies'].append(pol)
+            self.get_policy_vs(vs_policies, avi_config, vs_name, tenant,
+                               cloud_name, vs_obj)
             p_ref = None
             if is_pool_group:
                 p_ref = conv_utils.get_object_ref(pool_ref, 'poolgroup',
@@ -532,6 +506,48 @@ class VSConfigConv(object):
                                    conv_status, vs_obj)
 
         return vs_obj
+
+    def get_policy_vs(self, vs_policies, avi_config, vs_name, tenant,
+                      cloud_name, vs_obj):
+        """
+        This method gets all the policy attached to vs, also clone it if
+        required
+        :param vs_policies:
+        :param avi_config:
+        :param vs_name:
+        :param tenant:
+        :param cloud_name:
+        :param vs_obj:
+        :return:
+        """
+        for pol_name in vs_policies:
+            policy_obj = [ob for ob in avi_config['HTTPPolicySet'] if ob[
+                'name'] == pol_name]
+            if policy_obj:
+                if pol_name in used_policy:
+                    LOG.debug('Cloning the policy %s for vs %s',
+                              pol_name, vs_name)
+                    clone_policy = conv_utils.clone_http_policy_set(
+                        policy_obj[0], vs_name, avi_config, tenant,
+                        cloud_name)
+                    pol_name = clone_policy['name']
+                    avi_config['HTTPPolicySet'].append(clone_policy)
+                    LOG.debug('Policy cloned %s for vs %s', pol_name,
+                              vs_name)
+                used_policy.append(pol_name)
+                pol = {
+                    'index': 11,
+                    'http_policy_set_ref':
+                        conv_utils.get_object_ref(pol_name, 'httppolicyset',
+                                                  tenant=tenant)
+                }
+                if not vs_obj.get('http_policies'):
+                    vs_obj['http_policies'] = []
+                else:
+                    ind = max([pol_index['index'] for pol_index in vs_obj[
+                        'http_policies']])
+                    pol['index'] = ind + 1
+                vs_obj['http_policies'].append(pol)
 
 
 class VSConfigConvV11(VSConfigConv):
