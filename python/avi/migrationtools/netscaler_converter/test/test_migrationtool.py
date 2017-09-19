@@ -53,7 +53,7 @@ setup = dict(
     baseline_profile=None,
     redirect=False,
     ansible=True,
-    vs_level_status=False
+    vs_level_status=True
 )
 
 
@@ -429,6 +429,23 @@ class TestNetscalerConverter:
                                           setup.get('controller_password_16_4_4')), shell=True)
         except subprocess.CalledProcessError as e:
             output = e.output
+
+    @pytest.mark.travis
+    def test_vs_level_status_true(self):
+        """
+        Input File on Local Filesystem, VS level option true usage
+        """
+        netscaler_conv(config_file_name=setup.get('config_file_name'),
+                       controller_version=setup.get('controller_version_v17'),
+                       vs_level_status=setup.get('vs_level_status'))
+
+    @pytest.mark.travis
+    def test_vs_level_status_false(self):
+        """
+        Input File on Local Filesystem, VS level option false usage
+        """
+        netscaler_conv(config_file_name=setup.get('config_file_name'),
+                       controller_version=setup.get('controller_version_v17'))
 
 
 def teardown():
