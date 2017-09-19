@@ -62,7 +62,7 @@ setup = dict(
                                                     'passphrase.yaml')),
     f5_ansible_object=os.path.abspath(os.path.join(
         os.path.dirname(__file__),'output', 'avi_config_create_object.yml')),
-    vs_level_status=False
+    vs_level_status=True
 )
 
 logging.basicConfig(filename="runlog.txt", level=logging.DEBUG)
@@ -587,6 +587,25 @@ class TestF5Converter:
                                               setup.get('controller_password_16_4_4')), shell=True)
         except subprocess.CalledProcessError as e:
             output = e.output
+
+    @pytest.mark.travis
+    def test_vs_level_status_true_v10(self):
+        """
+        Input File on Local Filesystem, VS level option true usage
+        """
+        f5_conv(bigip_config_file=setup.get('config_file_name_v10'),
+                 f5_config_version=setup.get('file_version_v10'),
+                 controller_version=setup.get('controller_version_v17'),
+                 vs_level_status=setup.get('vs_level_status'))
+
+    @pytest.mark.travis
+    def test_vs_level_status_false_v10(self):
+        """
+        Input File on Local Filesystem, VS level option false usage
+        """
+        f5_conv(bigip_config_file=setup.get('config_file_name_v10'),
+                 controller_version=setup.get ('controller_version_v17'),
+                 f5_config_version=setup.get('file_version_v10'))
 
 
 def teardown():
