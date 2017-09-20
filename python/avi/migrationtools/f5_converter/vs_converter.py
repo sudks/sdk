@@ -579,7 +579,7 @@ class VSConfigConvV11(VSConfigConv):
         if port_translate:
             if port_translate == 'disabled':
                 conv_utils.update_pool_for_service_port(avi_config['Pool'],
-                                                        pool_ref)
+                        pool_ref, avi_config['HealthMonitor'], skipped)
             elif port_translate == 'enabled':
                 return
 
@@ -609,6 +609,6 @@ class VSConfigConvV10(VSConfigConv):
         if port_translate:
             if port_translate == 'disabled':
                 conv_utils.update_pool_for_service_port(avi_config['Pool'],
-                                                        pool_ref)
+                            pool_ref, avi_config['HealthMonitor'], skipped)
             elif port_translate == 'enabled':
                 return
