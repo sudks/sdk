@@ -994,7 +994,7 @@ class F5Util(MigrationUtil):
             return 'APPLICATION_PROFILE_TYPE_HTTP'
 
     def update_pool_for_service_port(self, pool_list, pool_name, hm_list,
-                                     skipped):
+                                     skipped, sys_hm_list):
         rem_hm = []
         pool = [obj for obj in pool_list if obj['name'] == pool_name]
         if pool:
@@ -1003,7 +1003,8 @@ class F5Util(MigrationUtil):
             if pool[0].get('health_monitor_refs'):
                 for hm in pool[0]['health_monitor_refs']:
                     hm_name = self.get_name(hm)
-                    hm_ob = [ob for ob in hm_list if ob['name'] == hm_name]
+                    hm_ob = [ob for ob in (hm_list + sys_hm_list) if
+                             ob['name'] == hm_name]
                     if hm_ob and (not hm_ob[0].get('monitor_port')):
                         rem_hm.append(hm)
                         skipped.append("monitor:{} should have monitor "
