@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from requests import ConnectionError
 from requests import Response
 from requests.sessions import Session
+from ssl import SSLError
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,49 @@ class ApiResponse(Response):
         return resp
 
 
+class AviCredentials(object):
+    controller = ''
+    username = ''
+    password = ''
+    api_version = '16.4.4'
+    tenant = None
+    tenant_uuid = None
+    token = None
+    port = None
+    timeout = 300
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def update_from_ansible_module(self, module):
+        """
+        :param module: ansible module
+        :return:
+        """
+        if module.params['avi_credentials']:
+            for k, v in list(module.params['avi_credentials'].items()):
+                if hasattr(self, k):
+                    setattr(self, k, v)
+        if module.params['controller']:
+            self.controller = module.params['controller']
+        if module.params['username']:
+            self.username = module.params['username']
+        if module.params['password']:
+            self.password = module.params['password']
+        if (module.params['api_version'] and
+                (module.params['api_version'] != '16.4.4')):
+            self.api_version = module.params['api_version']
+        if module.params['tenant']:
+            self.tenant = module.params['tenant']
+        if module.params['tenant_uuid']:
+            self.tenant_uuid = module.params['tenant_uuid']
+
+    def __str__(self):
+        return 'controller %s user %s api %s tenant %s' % (
+            self.controller, self.username, self.api_version, self.tenant)
+
+
 class ApiSession(Session):
     """
     Extends the Request library's session object to provide helper
@@ -132,13 +176,13 @@ class ApiSession(Session):
     # a new cache for that process.
     AVI_SLUG = 'Slug'
     SESSION_CACHE_EXPIRY = 20*60
-    SHARED_USER_HDRS = ['X-CSRFToken', 'Session-Id', 'Referer']
+    SHARED_USER_HDRS = ['X-CSRFToken', 'Session-Id', 'Referer', 'Content-Type']
     MAX_API_RETRIES = 3
 
     def __init__(self, controller_ip, username, password=None, token=None,
                  tenant=None, tenant_uuid=None, verify=False, port=None,
                  timeout=60, api_version=None,
-                 retry_conxn_errors=False):
+                 retry_conxn_errors=True, data_log=False):
         """
         initialize new session object with authenticated token from login api.
         It also keeps a cache of user sessions that are cleaned up if inactive
@@ -168,6 +212,8 @@ class ApiSession(Session):
         self.api_version = api_version
         self.retry_conxn_errors = retry_conxn_errors
         self.remote_api_version = {}
+        self.user_hdrs = {}
+        self.data_log = data_log
 
         # Refer Notes 01 and 02
         if controller_ip.startswith('http'):
@@ -202,9 +248,10 @@ class ApiSession(Session):
         return
 
     @staticmethod
-    def get_session(controller_ip, username, password=None, token=None,
-                    tenant=None, tenant_uuid=None, verify=False, port=None,
-                    timeout=60, retry_conxn_errors=False, api_version=None):
+    def get_session(
+            controller_ip, username, password=None, token=None, tenant=None,
+            tenant_uuid=None, verify=False, port=None, timeout=60,
+            retry_conxn_errors=True, api_version=None, data_log=False):
         """
         returns the session object for same user and tenant
         calls init if session dose not exist and adds it to session cache
@@ -241,7 +288,7 @@ class ApiSession(Session):
                 controller_ip, username, password, token=token, tenant=tenant,
                 tenant_uuid=tenant_uuid, verify=verify, port=port,
                 timeout=timeout, retry_conxn_errors=retry_conxn_errors,
-                api_version=api_version)
+                api_version=api_version, data_log=data_log)
             ApiSession.sessionDict[key] = \
                 {"api": user_session, "last_used": datetime.utcnow()}
         ApiSession._clean_inactive_sessions()
@@ -252,6 +299,10 @@ class ApiSession(Session):
         resets and re-authenticates the current session.
         """
         logger.info('resetting session for %s', self.key)
+        self.user_hdrs = {}
+        for k, v in self.headers.items():
+            if k not in self.SHARED_USER_HDRS:
+                self.user_hdrs[k] = v
         self.headers = {}
         self.authenticate_session()
 
@@ -275,11 +326,12 @@ class ApiSession(Session):
                 "Authentication failed with code %d reason msg: %s" %
                 (rsp.status_code, rsp.text))
         self.remote_api_version = rsp.json().get('version', {})
-        logger.debug("rsp cookies: %s", dict(rsp.cookies))
+        self.headers.update(self.user_hdrs)
         self.headers.update({
             "Referer": self.prefix,
             "Content-Type": "application/json"
         })
+
         if rsp.cookies and 'csrftoken' in rsp.cookies:
             csrftoken = rsp.cookies['csrftoken']
             self.headers.update({"X-CSRFToken": csrftoken})
@@ -287,8 +339,8 @@ class ApiSession(Session):
                 cached_api = \
                     ApiSession.sessionDict[self.key]['api']
                 cached_api.headers.update({"X-CSRFToken": csrftoken})
-        logger.debug("authentication success for user %s with headers: %s",
-                     self.username, self.headers)
+        logger.debug("authentication success for user %s",
+                     self.username)
         return
 
     def _get_api_headers(self, tenant, tenant_uuid, timeout, headers,
@@ -354,7 +406,7 @@ class ApiSession(Session):
             else:
                 resp = fn(fullpath, data=data, headers=api_hdrs,
                           timeout=timeout, **kwargs)
-        except ConnectionError as e:
+        except (ConnectionError, SSLError) as e:
             logger.warning('Connection error retrying %s', e)
             if not self.retry_conxn_errors:
                 raise
@@ -363,11 +415,18 @@ class ApiSession(Session):
             logger.error('Error in Requests library %s', e)
             raise
         if not connection_error:
-            logger.debug(
-                'path: %s http_method: %s hdrs: %s params: %s data: %s rsp: %s',
-                fullpath, api_name.upper(), api_hdrs, kwargs, data, resp.text)
+            logger.debug('path: %s http_method: %s hdrs: %s params: '
+                         '%s data: %s rsp: %s', fullpath, api_name.upper(),
+                         api_hdrs, kwargs, data,
+                         (resp.text if self.data_log else 'None'))
+
         if connection_error or resp.status_code in (401, 419):
             if connection_error:
+                try:
+                    self.close()
+                except:
+                    # ignoring exception in cleanup path
+                    pass
                 logger.warning('Connection failed, retrying.')
             else:
                 logger.info('received error %d %s so resetting connection',
@@ -552,7 +611,8 @@ class ApiSession(Session):
             session creation
         returns session's response object
         """
-        uuid = self._get_uuid_by_name(path, name, tenant, tenant_uuid)
+        uuid = self._get_uuid_by_name(
+            path, name, tenant, tenant_uuid, api_version=api_version)
         path = '%s/%s' % (path, uuid)
         return self.put(path, data, tenant, tenant_uuid, timeout=timeout,
                         params=params, api_version=api_version, **kwargs)
@@ -599,7 +659,8 @@ class ApiSession(Session):
             session creation
         returns session's response object
         """
-        uuid = self._get_uuid_by_name(path, name, tenant, tenant_uuid)
+        uuid = self._get_uuid_by_name(path, name, tenant, tenant_uuid,
+                                      api_version=api_version)
         if not uuid:
             raise ObjectNotFound("%s/?name=%s" % (path, name))
         path = '%s/%s' % (path, uuid)
@@ -645,9 +706,11 @@ class ApiSession(Session):
         else:
             return self.prefix+'/api/'+path
 
-    def _get_uuid_by_name(self, path, name, tenant='admin', tenant_uuid=''):
+    def _get_uuid_by_name(self, path, name, tenant='admin',
+                          tenant_uuid='', api_version=None):
         """gets object by name and service path and returns uuid"""
-        resp = self.get_object_by_name(path, name, tenant, tenant_uuid)
+        resp = self.get_object_by_name(
+            path, name, tenant, tenant_uuid, api_version=api_version)
         if not resp:
             raise ObjectNotFound("%s/%s" % (path, name))
         return self.get_obj_uuid(resp)

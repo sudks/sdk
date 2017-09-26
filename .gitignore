@@ -71,3 +71,5 @@ python/avi/migrationtools/gss_convertor/Conversion_status.xlsx
 python/avi/migrationtools/gss_convertor/log
 python/avi/migrationtools/gss_convertor/out
 python/avi/migrationtools/gss_convertor/input
+vscode
+output/

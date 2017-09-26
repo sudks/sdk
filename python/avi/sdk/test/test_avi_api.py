@@ -1,6 +1,7 @@
 import json
 import logging
 import unittest
+import pytest
 from avi.sdk.avi_api import (ApiSession, ObjectNotFound, APIError, ApiResponse,
                              avi_timedelta)
 from avi.sdk.utils.api_utils import ApiUtils
@@ -19,14 +20,17 @@ log = logging.getLogger(__name__)
 login_info = None
 
 urllib3.disable_warnings()
+gapi_version = '17.1.6'
+
+config_file = pytest.config.getoption("--config")
+with open(config_file) as f:
+    cfg = json.load(f)
 
 
 def setUpModule():
-    cfg_file = open('test_api.cfg', 'r')
-    cfg = cfg_file.read()
     global gSAMPLE_CONFIG
-    gSAMPLE_CONFIG = json.loads(cfg)
-    log.debug(' read cofig %s', gSAMPLE_CONFIG)
+    gSAMPLE_CONFIG = cfg
+    log.debug(' read config %s', gSAMPLE_CONFIG)
 
     global login_info
     login_info = gSAMPLE_CONFIG["LoginInfo"]
@@ -37,7 +41,7 @@ def setUpModule():
             login_info.get("password", "avi123"),
             tenant=login_info.get("tenant", "admin"),
             tenant_uuid=login_info.get("tenant_uuid", None),
-            api_version=login_info.get("api_version", "17.1"),
+            api_version=login_info.get("api_version", gapi_version),
             verify=False)
 
 
@@ -51,7 +55,7 @@ def create_sessions(args):
         api = ApiSession(
             login_info["controller_ip"], login_info.get("username", "admin"),
             login_info.get("password", "avi123"), api_version=login_info.get(
-                "api_version", "17.1"))
+                "api_version", "17.1"), data_log=login_info['data_log'])
     return 1 if key in ApiSession.sessionDict else 0
 
 
@@ -66,12 +70,10 @@ class Test(unittest.TestCase):
         vs_obj = basic_vs_cfg["vs_obj"]
         resp = api.post('pool', data=json.dumps(basic_vs_cfg["pool_obj"]),
                         api_version='17.1.1')
-        print resp.status_code, resp.text
         assert resp.status_code in (200, 201)
         vs_obj["pool_ref"] = api.get_obj_ref(resp.json())
         resp = api.post('virtualservice', data=json.dumps(vs_obj),
                         api_version='17.1.1')
-        print resp.status_code, resp.text
         assert resp.status_code in (200, 201)
         pool_name = gSAMPLE_CONFIG["BasicVS"]["pool_obj"]["name"]
         resp = api.get('virtualservice', tenant='admin',
@@ -86,7 +88,7 @@ class Test(unittest.TestCase):
 
     def test_reuse_server_session(self):
         api2 = ApiSession(api.controller_ip, api.username, api.password,
-                          tenant=api.tenant, tenant_uuid=api.tenant_uuid)
+                          tenant=api.tenant, tenant_uuid=api.tenant_uuid, data_log=login_info['data_log'])
         assert api.headers["X-CSRFToken"] == api2.headers["X-CSRFToken"]
 
     def test_reuse_api_session(self):
@@ -98,14 +100,17 @@ class Test(unittest.TestCase):
         assert api == api2
 
     def test_ssl_vs(self):
-        papi = ApiSession(api.controller_ip, api.username, api.password,
-                          verify=False, api_version=api.api_version)
+        papi = ApiSession(api.controller_ip, api.username,
+                          api.password,api_version=api.api_version,
+                          verify=False,data_log=True)
         ssl_vs_cfg = gSAMPLE_CONFIG["SSL-VS"]
         vs_obj = ssl_vs_cfg["vs_obj"]
         pool_name = gSAMPLE_CONFIG["SSL-VS"]["pool_obj"]["name"]
-        resp = papi.post('pool', data=json.dumps(ssl_vs_cfg["pool_obj"]))
+        resp = papi.post('pool', data=gSAMPLE_CONFIG["SSL-VS"]["pool_obj"])
+        assert resp.status_code == 201
         pool_ref = papi.get_obj_ref(resp.json())
-        cert, key, _, _ = get_sample_ssl_params(folder_path='../samples/')
+        cert, key, _, _ = get_sample_ssl_params\
+            (folder_path=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','samples')) + os.sep)
         api_utils = ApiUtils(papi)
         try:
             resp = api_utils.import_ssl_certificate("ssl-vs-kc", key, cert)
@@ -130,7 +135,7 @@ class Test(unittest.TestCase):
     def test_cloned_session_headers(self):
         api2 = ApiSession(api.controller_ip, api.username, api.password,
                           tenant=api.tenant, tenant_uuid=api.tenant_uuid,
-                          api_version=api.api_version, verify=False)
+                          api_version=api.api_version, verify=False,data_log=api.data_log)
         SHARED_USER_HDRS = ['X-CSRFToken', 'Session-Id', 'Referer']
         for hdr in SHARED_USER_HDRS:
             if hdr in api.headers:
@@ -200,7 +205,7 @@ class Test(unittest.TestCase):
         resp = api.post('tenant', data=tobj)
         assert resp.status_code in (200, 201)
         tapi = ApiSession(api.controller_ip, api.username, api.password,
-                          tenant=tobj['name'], verify=False)
+                          tenant=tobj['name'], verify=False, data_log=api.data_log)
         t_obj = tapi.get_object_by_name('tenant', tobj['name'])
         # created pool.
         log.info('tenant %s', t_obj)
@@ -282,6 +287,29 @@ class Test(unittest.TestCase):
         except:
             pass
         assert avi_timedelta(timedelta(seconds=10)) == 10
+
+    def test_session_reset(self):
+        papi = ApiSession(api.controller_ip, api.username, api.password,
+                          verify=False, api_version=api.api_version, data_log=api.data_log)
+        res = papi.get('pool', params={'fields': 'name'})
+        assert res.status_code == 200
+        papi.reset_session()
+        res = papi.get('pool', params={'fields': 'name'})
+        assert res.status_code == 200
+        data = {'name': 'test-reset'}
+        res = papi.post('pool', data=data)
+        assert res.status_code == 201
+        papi.reset_session()
+        res = papi.delete_by_name('pool', 'test-reset')
+        assert res.status_code == 204
+
+    def test_session_multi_reset(self):
+        papi = ApiSession(api.controller_ip, api.username, api.password,
+                          verify=False, api_version=api.api_version, data_log=api.data_log)
+        papi.reset_session()
+        papi.reset_session()
+
+
 
 if __name__ == "__main__":
     unittest.main()

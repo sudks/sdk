@@ -1,20 +1,26 @@
 import copy
 import logging
 import os
-
-import avi.migrationtools.f5_converter.conversion_util as conv_utils
 import avi.migrationtools.f5_converter.converter_constants as conv_const
+from pkg_resources import parse_version
+from avi.migrationtools.f5_converter.profile_converter import ssl_count
+from avi.migrationtools.f5_converter.conversion_util import F5Util
 
 LOG = logging.getLogger(__name__)
+# Creating f5 object for util library.
+conv_utils = F5Util()
 
 
 class MonitorConfigConv(object):
     @classmethod
-    def get_instance(cls, version, f5_monitor_atributes, prefix):
+    def get_instance(cls, version, f5_monitor_atributes, prefix,
+                     object_merge_check):
         if version == '10':
-            return MonitorConfigConvV10(f5_monitor_atributes, prefix)
+            return MonitorConfigConvV10(f5_monitor_atributes, prefix,
+                                        object_merge_check)
         if version in ['11', '12']:
-            return MonitorConfigConvV11(f5_monitor_atributes, prefix)
+            return MonitorConfigConvV11(f5_monitor_atributes, prefix,
+                                        object_merge_check)
 
     def get_defaults(self, monitor_config, key):
         pass
@@ -28,7 +34,9 @@ class MonitorConfigConv(object):
     def convert_http(self, monitor_dict, f5_monitor, skipped):
         pass
 
-    def convert_https(self, monitor_dict, f5_monitor, skipped):
+    def convert_https(self, monitor_dict, f5_monitor, skipped, avi_config,
+                      tenant, input_dir, cloud_name, controller_version,
+                      merge_object_mapping, sys_dict):
         pass
 
     def convert_dns(self, monitor_dict, f5_monitor, skipped):
@@ -47,12 +55,135 @@ class MonitorConfigConv(object):
                          name):
         pass
 
-    def convert(self, f5_config, avi_config, input_dir, user_ignore, tenant):
+    def create_sslprofile(self, monitor_dict, f5_monitor, avi_config,
+                           tenant, cloud_name, merge_object_mapping, sys_dict):
+        """
+
+        :param monitor_dict:
+        :param f5_monitor:
+        :param skipped:
+        :param avi_config:
+        :param tenant:
+        :param input_dir:
+        :param cloud_name:
+        :param controller_version:
+        :return:
+        """
+        # Condition to create ssl profile.
+        converted_objs = []
+        cipher = f5_monitor.get('cipherlist', None)
+        cipher = cipher.replace('\"', '') if cipher is not None else None
+        ssl_profile = dict()
+        ssl_profile["accepted_versions"] = [
+            {"type": "SSL_VERSION_TLS1"},
+            {"type": "SSL_VERSION_TLS1_1"},
+            {"type": "SSL_VERSION_TLS1_2"}
+        ]
+        ssl_profile['name'] = '%s-%s' % (monitor_dict['name'], 'sslprofile')
+        ssl_profile['tenant_ref'] = conv_utils.get_object_ref(
+            tenant, 'tenant')
+        ssl_profile['accepted_ciphers'] = cipher
+        if self.object_merge_check:
+            conv_utils.update_skip_duplicates(
+                ssl_profile, avi_config['SSLProfile'], 'ssl_profile',
+                converted_objs, ssl_profile['name'], None, merge_object_mapping,
+                None, self.prefix, sys_dict['SSLProfile'])
+            ssl_count['count'] += 1
+        else:
+            avi_config['SSLProfile'].append(ssl_profile)
+        sname = [ob for ob in sys_dict['SSLProfile'] if ob['name'] ==
+                merge_object_mapping['ssl_profile'].get(ssl_profile['name'])] \
+                or [sname for sname in avi_config['SSLProfile'] if (
+                sname['name'] == ssl_profile['name'] or ssl_profile[
+                'name'] in sname.get('dup_of', []))]
+        ref = conv_utils.get_object_ref(
+            sname[0]['name'], "sslprofile", tenant, cloud_name)
+        monitor_dict["https_monitor"]['ssl_attributes'][
+            'ssl_profile_ref'] = ref
+
+    def create_sslkeyandcert(self, monitor_dict, f5_monitor, avi_config, tenant,
+                             input_dir, cloud_name, merge_object_mapping,
+                             sys_dict):
+        """
+
+        :param monitor_dict:
+        :param f5_monitor:
+        :param skipped:
+        :param avi_config:
+        :param tenant:
+        :param input_dir:
+        :param cloud_name:
+        :param merge_object_mapping:
+        :param sys_dict:
+        :return:
+        """
+        # Condition create  sslkeyandcert.
+        converted_objs = []
+        key_file_name = f5_monitor.get('key', None)
+        cert_file_name = f5_monitor.get('cert', None)
+        folder_path = input_dir + os.path.sep
+        key = None
+        if key_file_name:
+            key = conv_utils.upload_file(folder_path + key_file_name)
+        cert = None
+        if cert_file_name:
+            cert = conv_utils.upload_file(folder_path + cert_file_name)
+        name = monitor_dict['name']
+        if not key or not cert:
+            key, cert = conv_utils.create_self_signed_cert()
+            name = monitor_dict['name'] + '-dummy'
+            LOG.warning(
+                'Create self cerificate and key for : %s' % key_file_name)
+        ssl_kc_obj = None
+        if key and cert:
+            cert = {"certificate": cert}
+            ssl_kc_obj = {
+                'name': name,
+                'tenant_ref': conv_utils.get_object_ref(tenant,
+                                                        'tenant'),
+                'key': key,
+                'certificate': cert,
+                'key_passphrase': '',
+                'type': 'SSL_CERTIFICATE_TYPE_VIRTUALSERVICE'
+            }
+        # Added condition for merging sslkeyandcert
+        if ssl_kc_obj and 'dummy' not in ssl_kc_obj['name']:
+            conv_utils.update_skip_duplicates(ssl_kc_obj,
+                avi_config['SSLKeyAndCertificate'], 'ssl_cert_key',
+                converted_objs, name, None, merge_object_mapping,
+                None, self.prefix, sys_dict['SSLKeyAndCertificate'])
+        else:
+            avi_config['SSLKeyAndCertificate'].append(ssl_kc_obj)
+        ssl_key_cert_list = avi_config.get("SSLKeyAndCertificate", [])
+        key_cert = [ob for ob in sys_dict['SSLKeyAndCertificate'] if
+                   ob['name'] == merge_object_mapping['ssl_cert_key'].get(
+                   name)] or [obj for obj in ssl_key_cert_list if
+                   (obj['name'] == name or obj['name'] == name + '-dummy'
+                   or name in obj.get("dup_of", []))]
+        if key_cert:
+            name = key_cert[0]['name']
+        ref = conv_utils.get_object_ref(
+             name, "sslkeyandcertificate", tenant, cloud_name)
+        monitor_dict["https_monitor"]['ssl_attributes'][
+             'ssl_key_and_certificate_ref'] = ref
+        LOG.info('Added new SSL key and certificate for %s' % name)
+
+    def convert(self, f5_config, avi_config, input_dir, user_ignore, tenant,
+                cloud_name, controller_version, merge_object_mapping, sys_dict):
         LOG.debug("Converting health monitors")
-        avi_config["HealthMonitor"] = []
+        print "Converting Monitors..."
+        converted_objs = []
         m_user_ignore = user_ignore.get('monitor', {})
         monitor_config = f5_config.pop("monitor", {})
+        # Added varibles to  get total count of object.
+        total_size = len(monitor_config.keys())
+        progressbar_count = 0
         for key in monitor_config.keys():
+            progressbar_count += 1
+            # Added call to check progress.
+            msg = "Monitor conversion started..."
+            conv_utils.print_progress_bar(progressbar_count, total_size, msg,
+                               prefix='Progress', suffix='')
             f5_monitor = monitor_config[key]
             if not f5_monitor:
                 if " " in key:
@@ -60,9 +191,10 @@ class MonitorConfigConv(object):
                 else:
                     m_type = None
                     name = key
+                msg = "Empty config for monitor: %s " % name
+                LOG.warn(msg)
                 conv_utils.add_status_row('monitor', m_type, name,
-                                          conv_const.STATUS_SKIPPED)
-                LOG.warn("Empty config for monitor: %s " % name)
+                                          conv_const.STATUS_SKIPPED, msg)
                 continue
             f5_monitor = self.get_defaults(monitor_config, key)
             monitor_type, name = self.get_name_type(f5_monitor, key)
@@ -72,17 +204,45 @@ class MonitorConfigConv(object):
             try:
                 LOG.debug("Converting monitor: %s" % name)
                 if monitor_type not in self.supported_types:
-                    LOG.warn("Monitor type not supported by Avi : "+name)
+                    avi_monitor = self.convert_monitor(
+                        f5_monitor, key, monitor_config, input_dir,
+                        m_user_ignore,
+                        tenant, avi_config, cloud_name, controller_version,
+                        merge_object_mapping, sys_dict)
+                    if not avi_monitor:
+                        continue
+                    avi_monitor['name'] = '%s-%s' % (avi_monitor['name'],
+                                                     'dummy')
+                    avi_monitor["type"] = "HEALTH_MONITOR_EXTERNAL"
+                    ext_monitor = {
+                        "command_code": "",
+                    }
+                    avi_monitor["external_monitor"] = ext_monitor
+                    avi_config['HealthMonitor'].append(avi_monitor)
+                    msg = "Monitor type {} not supported, created dummy " \
+                          "external monitor {}".format(monitor_type,
+                                                       avi_monitor['name'])
+                    LOG.warn(msg)
                     conv_utils.add_status_row(
                         'monitor', monitor_type, name,
-                        conv_const.STATUS_EXTERNAL_MONITOR)
+                        conv_const.STATUS_EXTERNAL_MONITOR, msg)
                     continue
                 avi_monitor = self.convert_monitor(
                     f5_monitor, key, monitor_config, input_dir, m_user_ignore,
-                    tenant)
+                    tenant, avi_config, cloud_name, controller_version,
+                    merge_object_mapping, sys_dict)
                 if not avi_monitor:
                     continue
-                avi_config["HealthMonitor"].append(avi_monitor)
+                # code to merge health monitor.
+                if self.object_merge_check:
+                    conv_utils.update_skip_duplicates(avi_monitor,
+                        avi_config['HealthMonitor'], 'health_monitor',
+                            converted_objs, name, None, merge_object_mapping,
+                                            monitor_type, self.prefix,
+                                                      sys_dict['HealthMonitor'])
+                    self.mon_count += 1
+                else:
+                    avi_config["HealthMonitor"].append(avi_monitor)
                 LOG.debug("Conversion successful for monitor: %s" % name)
             except:
                 LOG.error("Failed to convert monitor: %s" % key, exc_info=True)
@@ -96,13 +256,17 @@ class MonitorConfigConv(object):
                   len(avi_config["HealthMonitor"]))
 
     def convert_monitor(self, f5_monitor, key, monitor_config, input_dir,
-                        user_ignore, tenant_ref):
+                        user_ignore, tenant_ref, avi_config, cloud_name,
+                        controller_version, merge_object_mapping, sys_dict):
         monitor_type, name = self.get_name_type(f5_monitor, key)
         skipped = [val for val in f5_monitor.keys()
                    if val not in self.supported_attributes]
         indirect = copy.deepcopy(self.indirect_mappings)
         timeout = int(f5_monitor.get("timeout", conv_const.DEFAULT_TIMEOUT))
-        interval = int(f5_monitor.get("interval", conv_const.DEFAULT_INTERVAL))
+        # Supporting value 'auto' and changing it to default value for interval
+        interval = str(f5_monitor.get("interval", conv_const.DEFAULT_INTERVAL))
+        interval = int(interval) if interval.isdigit() else \
+                    conv_const.DEFAULT_INTERVAL
         time_until_up = int(f5_monitor.get(self.tup,
                                            conv_const.DEFAULT_TIME_UNTIL_UP))
         # Fixed Successful interval and failed checks
@@ -154,7 +318,9 @@ class MonitorConfigConv(object):
         elif monitor_type == "https":
             na_list = self.na_https
             u_ignore = user_ignore.get("https", [])
-            skipped = self.convert_https(monitor_dict, f5_monitor, skipped)
+            skipped = self.convert_https(monitor_dict, f5_monitor, skipped,
+                      avi_config, tenant_ref, input_dir, cloud_name,
+                      controller_version, merge_object_mapping, sys_dict)
         elif monitor_type == "dns":
             na_list = self.na_dns
             u_ignore = user_ignore.get("dns", [])
@@ -163,10 +329,11 @@ class MonitorConfigConv(object):
                 skipped = self.convert_dns(monitor_dict, f5_monitor, skipped)
                 ignore_for_defaults.update({'qtype': 'a'})
             else:
-                LOG.warning('No value for mandatory field query_name, skipped '
-                            'DNS Monitor %s' % key)
+                msg = ('No value for mandatory field query_name, skipped '
+                       'DNS Monitor %s' % key)
+                LOG.warning(msg)
                 conv_utils.add_status_row('monitor', monitor_type, name,
-                                          conv_const.STATUS_SKIPPED)
+                                          conv_const.STATUS_SKIPPED, msg)
                 return None
         elif monitor_type in ["tcp", "tcp_half_open", "tcp-half-open"]:
             na_list = self.na_tcp
@@ -200,7 +367,7 @@ class MonitorConfigConv(object):
 
 
 class MonitorConfigConvV11(MonitorConfigConv):
-    def __init__(self, f5_monitor_attributes, prefix):
+    def __init__(self, f5_monitor_attributes, prefix, object_merge_check):
         self.supported_types = f5_monitor_attributes['Monitor_Supported_Types']
         self.tup = "time-until-up"
         self.supported_attributes = \
@@ -224,6 +391,8 @@ class MonitorConfigConvV11(MonitorConfigConv):
         self.ext_attr = f5_monitor_attributes['Monitor_ext_attr']
         # Added prefix for objects
         self.prefix = prefix
+        self.object_merge_check = object_merge_check
+        self.mon_count = 0
 
     def get_default_monitor(self, monitor_type, monitor_config):
         default_name = "%s %s" % (monitor_type, monitor_type)
@@ -251,6 +420,7 @@ class MonitorConfigConvV11(MonitorConfigConv):
         skipped = [key for key in skipped if key not in self.http_attr]
         send = f5_monitor.get('send', 'HEAD / HTTP/1.0')
         send = send.replace('\\\\', '\\')
+        send = send.replace('"', '')
         send = conv_utils.rreplace(send, '\\r\\n', '', 1)
         monitor_dict["type"] = "HEALTH_MONITOR_HTTP"
         monitor_dict["http_monitor"] = {
@@ -273,15 +443,32 @@ class MonitorConfigConvV11(MonitorConfigConv):
         monitor_dict["http_monitor"]["http_response"] = http_rsp
         return skipped
 
-    def convert_https(self, monitor_dict, f5_monitor, skipped):
+    def convert_https(self, monitor_dict, f5_monitor, skipped, avi_config,
+                      tenant_ref, input_dir, cloud_name, controller_version,
+                      merge_object_mapping, sys_dict):
         skipped = [key for key in skipped if key not in self.https_attr]
-        send = f5_monitor.get('send', None)
+        send = f5_monitor.get('send', 'HEAD / HTTP/1.0')
         send = send.replace('\\\\', '\\')
+        send = send.replace('"', '')
         send = conv_utils.rreplace(send, '\\r\\n', '', 1)
         monitor_dict["type"] = "HEALTH_MONITOR_HTTPS"
         monitor_dict["https_monitor"] = {
             "http_request": send,
             "http_response_code": ["HTTP_2XX", "HTTP_3XX"]}
+        monitor_dict["https_monitor"]['ssl_attributes'] = dict()
+        if parse_version(controller_version) >= parse_version('17.1'):
+            # Added code to handle ssl attribute.
+            # Removed ssl cert key ref from monitor's ssl attribute
+            if f5_monitor.get('cipherlist', None):
+                self.create_sslprofile(monitor_dict, f5_monitor, avi_config,
+                               tenant_ref, cloud_name, merge_object_mapping,
+                                       sys_dict)
+            else:
+                monitor_dict["https_monitor"]['ssl_attributes'][
+                    'ssl_profile_ref'] = conv_utils.get_object_ref(
+                                         'System-Standard',
+                                         conv_const.OBJECT_TYPE_SSL_PROFILE,
+                                                                    tenant_ref)
         destination = f5_monitor.get(self.dest_key, "*:*")
         dest_str = destination.split(":")
         # some config . appear with port. ex '*.80'
@@ -471,7 +658,8 @@ class MonitorConfigConvV11(MonitorConfigConv):
 
 
 class MonitorConfigConvV10(MonitorConfigConv):
-    def __init__(self, f5_monitor_attributes, prefix):
+
+    def __init__(self, f5_monitor_attributes, prefix, object_merge_check):
         self.supported_types = f5_monitor_attributes['Monitor_Supported_Types']
         self.tup = "time until up"
         self.supported_attributes =\
@@ -494,6 +682,8 @@ class MonitorConfigConvV10(MonitorConfigConv):
         self.ext_attr = f5_monitor_attributes['Monitor_ext_attr']
         # Added prefix for objects
         self.prefix = prefix
+        self.object_merge_check = object_merge_check
+        self.mon_count = 0
 
     def get_name_type(self, f5_monitor, key):
         return f5_monitor.get("type"), key
@@ -522,6 +712,7 @@ class MonitorConfigConvV10(MonitorConfigConv):
         skipped = [key for key in skipped if key not in http_attr]
         send = f5_monitor.get('send', 'HEAD / HTTP/1.0')
         send = send.replace('\\\\', '\\')
+        send = send.replace('"', '')
         send = conv_utils.rreplace(send, '\\r\\n', '', 1)
         monitor_dict["type"] = "HEALTH_MONITOR_HTTP"
         monitor_dict["http_monitor"] = {
@@ -545,19 +736,36 @@ class MonitorConfigConvV10(MonitorConfigConv):
         monitor_dict["http_monitor"]["http_response"] = http_resp
         return skipped
 
-    def convert_https(self, monitor_dict, f5_monitor, skipped):
+    def convert_https(self, monitor_dict, f5_monitor, skipped,
+                      avi_config, tenant, input_dir, cloud_name,
+                      controller_version, merge_object_mapping, sys_dict):
 
         ignore_list = ['compatibility']
         https_attr = ignore_list + self.https_attr
         skipped = [key for key in skipped if key not in https_attr]
         send = f5_monitor.get('send', None)
         send = send.replace('\\\\', '\\')
+        send = send.replace('"', '')
         send = conv_utils.rreplace(send, '\\r\\n', '', 1)
         monitor_dict["type"] = "HEALTH_MONITOR_HTTPS"
         monitor_dict["https_monitor"] = {
             "http_request": send,
             "http_response_code": ["HTTP_2XX", "HTTP_3XX"]
         }
+        # Added code to handel ssl attribute and certificate.
+        monitor_dict["https_monitor"]['ssl_attributes'] = dict()
+        if parse_version(controller_version) >= parse_version('17.1'):
+            # Added code to handle ssl attribute
+            # Removed ssl cert and key ref to monitor' ssl attribute
+            if f5_monitor.get('cipherlist', None):
+                self.create_sslprofile(monitor_dict, f5_monitor, avi_config,
+                            tenant, cloud_name, merge_object_mapping, sys_dict)
+            else:
+                monitor_dict["https_monitor"]['ssl_attributes'][
+                    'ssl_profile_ref'] = conv_utils.get_object_ref(
+                                            'System-Standard',
+                                            conv_const.OBJECT_TYPE_SSL_PROFILE,
+                                            tenant)
         # F5 version 10 have dest as port added code.
         # if * is there then ignore it else add to port.
         destination = f5_monitor.get(self.dest_key, "*:*")

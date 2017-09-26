@@ -1,20 +1,23 @@
 import logging
-import avi.migrationtools.f5_converter.conversion_util as conv_utils
 import avi.migrationtools.f5_converter.converter_constants as final
 import avi.migrationtools.f5_converter.converter_constants as conv_const
-
 from avi.migrationtools.f5_converter.profile_converter import ProfileConfigConv
-
+from avi.migrationtools.f5_converter.conversion_util import F5Util
 LOG = logging.getLogger(__name__)
+# Creating f5 object for util library.
+conv_utils = F5Util()
 
 
 class PersistenceConfigConv(object):
     @classmethod
-    def get_instance(cls, version, f5_persistence_attributes, prefix):
+    def get_instance(cls, version, f5_persistence_attributes, prefix,
+                     object_merge_check):
         if version == '10':
-            return PersistenceConfigConvV10(f5_persistence_attributes, prefix)
+            return PersistenceConfigConvV10(f5_persistence_attributes, prefix,
+                                            object_merge_check)
         if version in ['11', '12']:
-            return PersistenceConfigConvV11(f5_persistence_attributes, prefix)
+            return PersistenceConfigConvV11(f5_persistence_attributes, prefix,
+                                            object_merge_check)
 
     def convert_cookie_persistence(self, name, profile):
         pass
@@ -35,18 +38,28 @@ class PersistenceConfigConv(object):
     def update_conv_status_for_error(self, name, persist_mode, key):
         pass
 
-    def update_conv_status_for_skip(self, persist_mode, name):
+    def update_conv_status_for_skip(self, persist_mode, name, msg):
         pass
 
-    def convert(self, f5_config, avi_config, user_ignore, tenant_ref):
+    def convert(self, f5_config, avi_config, user_ignore, tenant_ref,
+                merge_object_mapping, sys_dict):
         avi_config['hash_algorithm'] = []
-        avi_config["ApplicationPersistenceProfile"] = []
+        converted_objs = []
         f5_persistence_dict = f5_config.get('persistence')
         user_ignore = user_ignore.get('persistence', {})
+        # Added variable to get total object count.
+        progressbar_count = 0
+        total_size = len(f5_persistence_dict.keys())
+        print "Converting Persistence Profiles..."
         for key in f5_persistence_dict.keys():
+            progressbar_count += 1
             persist_mode = None
             name = None
             skipped = []
+            # Added call to check the progress.
+            msg = "persistence conversion started..."
+            conv_utils.print_progress_bar(progressbar_count, total_size, msg,
+                             prefix='Progress', suffix='')
             try:
                 persist_mode, name = key.split(" ")
                 LOG.debug("Converting persistence profile: %s" % name)
@@ -87,15 +100,24 @@ class PersistenceConfigConv(object):
                         'profile', "hash-persistence", name, conv_status, msg)
                     continue
                 else:
-                    LOG.warning(
-                        'persist mode not supported skipping conversion: %s' %
-                        name)
-                    self.update_conv_status_for_skip(persist_mode, name)
+                    msg = 'persist mode not supported skipping conversion: %s'\
+                           % name
+                    LOG.warning(msg)
+                    self.update_conv_status_for_skip(persist_mode, name, msg)
                     continue
                 if not persist_profile:
                     continue
-                avi_config["ApplicationPersistenceProfile"].append(
-                    persist_profile)
+                # code to merge applicaation persistence profile.
+                if self.object_merge_check:
+                    conv_utils.update_skip_duplicates(persist_profile,
+                                    avi_config['ApplicationPersistenceProfile'],
+                                    'app_per_profile', converted_objs, name,
+                                    None, merge_object_mapping, persist_mode,
+                         self.prefix, sys_dict['ApplicationPersistenceProfile'])
+                    self.app_per_count += 1
+                else:
+                    avi_config["ApplicationPersistenceProfile"].append(
+                        persist_profile)
 
                 ignore_for_defaults = {"app-service": "none", "mask": "none"}
                 conv_status = conv_utils.get_conv_status(
@@ -107,7 +129,6 @@ class PersistenceConfigConv(object):
                 LOG.error("Failed to convert persistance profile : %s" % key,
                           exc_info=True)
                 self.update_conv_status_for_error(name, persist_mode, key)
-
         count = len(avi_config["ApplicationPersistenceProfile"])
         LOG.debug("Converted %s persistence profiles" % count)
         f5_config.pop('persistence')
@@ -135,7 +156,7 @@ class PersistenceConfigConv(object):
 
 
 class PersistenceConfigConvV11(PersistenceConfigConv):
-    def __init__(self, f5_persistence_attributes, prefix):
+    def __init__(self, f5_persistence_attributes, prefix, object_merge_check):
         self.indirect = f5_persistence_attributes['Persistence_indirect']
         self.supported_attr = f5_persistence_attributes['Persistence_supported_attr']
         self.supported_attr_convert = f5_persistence_attributes['Persistence_' \
@@ -143,14 +164,16 @@ class PersistenceConfigConvV11(PersistenceConfigConv):
                                             'convert_source_addr']
         # Added prefix for objects
         self.prefix = prefix
+        self.object_merge_check = object_merge_check
+        self.app_per_count = 0
 
     def convert_cookie(self, name, profile, skipped, tenant):
         method = profile.get('method', 'insert')
         if not method == 'insert':
-            LOG.warn("Skipped cookie method not supported for profile '%s' "
-                     % name)
+            msg = "Skipped cookie method not supported for profile '%s' " % name
+            LOG.warn(msg)
             conv_utils.add_status_row('persistence', 'cookie', name,
-                                      final.STATUS_SKIPPED)
+                                      final.STATUS_SKIPPED, msg)
             return None
         #supported_attr = ["cookie-name", "defaults-from", "expiration",
                           #"method"]
@@ -226,13 +249,13 @@ class PersistenceConfigConvV11(PersistenceConfigConv):
             conv_utils.add_status_row("persistence", key, key,
                                       final.STATUS_ERROR)
 
-    def update_conv_status_for_skip(self, persist_mode, name):
+    def update_conv_status_for_skip(self, persist_mode, name, msg):
         conv_utils.add_status_row("persistence", persist_mode, name,
-                                  final.STATUS_SKIPPED)
+                                  final.STATUS_SKIPPED, msg)
 
 
 class PersistenceConfigConvV10(PersistenceConfigConv):
-    def __init__(self, f5_persistence_attributes, prefix):
+    def __init__(self, f5_persistence_attributes, prefix, object_merge_check):
         self.indirect = f5_persistence_attributes['Persistence_indirect']
         self.supported_attr = \
             f5_persistence_attributes['Persistence_supported_attr']
@@ -240,6 +263,8 @@ class PersistenceConfigConvV10(PersistenceConfigConv):
             'Persistence_supported_attr_convert_source_addr']
         # Added prefix for objects
         self.prefix = prefix
+        self.object_merge_check = object_merge_check
+        self.app_per_count = 0
 
     def convert_cookie(self, name, profile, skipped, tenant):
         method = profile.get('cookie mode', 'insert')
@@ -255,9 +280,10 @@ class PersistenceConfigConvV10(PersistenceConfigConv):
                    if attr not in self.supported_attr]
         cookie_name = profile.get("cookie name", name+':-cookie')
         if not cookie_name:
-            LOG.error("Missing Required field cookie name in: %s", name)
+            msg = "Missing Required field cookie name in: %s", name
+            LOG.error(msg)
             conv_utils.add_status_row('profile', 'persist-cookie', name,
-                                      final.STATUS_SKIPPED)
+                                      final.STATUS_SKIPPED, msg)
             return None
         timeout = profile.get("cookie expiration", '1')
         if timeout == 'immediate':
@@ -330,6 +356,6 @@ class PersistenceConfigConvV10(PersistenceConfigConv):
             conv_utils.add_status_row("profile", 'persist', key,
                                       final.STATUS_ERROR)
 
-    def update_conv_status_for_skip(self, persist_mode, name):
+    def update_conv_status_for_skip(self, persist_mode, name, msg):
         conv_utils.add_status_row("profile", 'persist', name,
-                                  final.STATUS_SKIPPED)
+                                  final.STATUS_SKIPPED, msg)

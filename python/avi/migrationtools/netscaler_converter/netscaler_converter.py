@@ -12,6 +12,8 @@ import avi.migrationtools.netscaler_converter.netscaler_parser as ns_parser
 import avi.migrationtools.netscaler_converter.scp_util as scp_util
 from avi.migrationtools.avi_converter import AviConverter
 from avi.migrationtools.avi_orphan_object import wipe_out_not_in_use
+from avi.migrationtools.ansible.ansible_config_converter import\
+                                AviAnsibleConverter
 
 LOG = logging.getLogger(__name__)
 sdk_version = getattr(avi.migrationtools, '__version__', None)
@@ -37,7 +39,7 @@ class NetscalerConverter(AviConverter):
         self.ns_key_file = args.ns_key_file
         self.ns_passphrase_file = args.ns_passphrase_file
         self.version = args.version
-        self.profile_merge_check = args.no_profile_merge
+        self.object_merge_check = args.no_object_merge
         # config_patch.py args taken into class variable
         self.patch = args.patch
         # vs_filter.py args taken into classs variable
@@ -47,6 +49,14 @@ class NetscalerConverter(AviConverter):
         self.prefix = args.prefix
         # Added not in use flag
         self.not_in_use = args.not_in_use
+        # Added args for baseline profile json file
+        self.profile_path = args.baseline_profile
+        # Added args for redirecting http vs to https vs
+        self.redirect = args.redirect
+        # for ansible 
+        self.create_ansible = args.ansible
+        self.vs_level_status = args.vs_level_status
+
 
 
 
@@ -71,6 +81,7 @@ class NetscalerConverter(AviConverter):
         self.print_pip_and_controller_version()
         if is_download_from_host:
             LOG.debug("Copying files from host")
+            print "Copying Files from Host..."
             scp_util.get_files_from_ns(input_dir, self.ns_host_ip,
                                        self.ns_ssh_user, self.ns_ssh_password)
             LOG.debug("Copied input files")
@@ -89,11 +100,12 @@ class NetscalerConverter(AviConverter):
         # getting meta tag from superclass
         meta = self.meta(self.tenant, self.controller_version)
         report_name = os.path.splitext(os.path.basename(source_file))[0]
-        avi_config = ns_conf_converter.convert(
-            meta, ns_config, self.tenant, self.cloud_name,
-            self.controller_version, output_dir, input_dir, skipped_cmds,
-            self.vs_state, self.profile_merge_check, report_name, self.prefix,
-            self.ns_passphrase_file, user_ignore)
+        avi_config = ns_conf_converter.convert(meta, ns_config, self.tenant,
+                     self.cloud_name, self.controller_version, output_dir,
+                     input_dir, skipped_cmds, self.vs_state,
+                     self.object_merge_check, report_name, self.prefix,
+                     self.profile_path, self.redirect, self.ns_passphrase_file,
+                     user_ignore, self.vs_level_status)
 
         avi_config = self.process_for_utils(
             avi_config)
@@ -102,9 +114,18 @@ class NetscalerConverter(AviConverter):
             avi_config = wipe_out_not_in_use(avi_config)
         self.write_output(
             avi_config, output_dir, '%s-Output.json' % report_name)
+
+        if self.create_ansible:
+            avi_ansible = AviAnsibleConverter(avi_config, output_dir,
+                                              self.prefix, self.not_in_use)
+            avi_ansible.write_ansible_playbook(self.ns_host_ip,
+                                               self.ns_ssh_user,
+                                               self.ns_ssh_password)
+        
         if self.option == 'auto-upload':
             self.upload_config_to_controller(avi_config)
         return avi_config
+        
 
 
 if __name__ == "__main__":
@@ -135,7 +156,12 @@ if __name__ == "__main__":
             Example:
             mcqcim.key: ZcZawJ7ps0AJ+5TMDi7UA==
             avi_key.pem : foobar
-
+            
+        Example to provide baseline json file absolute location:
+            netscaler_converter.py -f ns.conf --baseline_profile 
+            /home/<'sys_conf.json' or 'ns-Output.json'>
+        Usecase: Need to merge objects if there is migration of two netscaler
+                 instances/box to single controller.
         '''
 
     parser = argparse.ArgumentParser(
@@ -186,8 +212,10 @@ if __name__ == "__main__":
     parser.add_argument('--version',
                         help='Print product version and exit',
                         action='store_true')
-    parser.add_argument('--no_profile_merge',
-                        help='Flag for ssl profile merge', action='store_false')
+    # Changed the option name and description to generic as along with profile
+    # health monitor can also be merged
+    parser.add_argument('--no_object_merge',
+                        help='Flag for object merge', action='store_false')
     # Added command line args to execute config_patch file with related avi
     # json file location and patch location
     parser.add_argument('--patch', help='Run config_patch please provide '
@@ -203,7 +231,20 @@ if __name__ == "__main__":
     parser.add_argument('--not_in_use',
                         help='Flag for skipping not in use object',
                         action="store_true")
+    # Added args for baseline profile json file
+    parser.add_argument('--baseline_profile', help='asolute path for json '
+                                    'file containing baseline profiles')
+    # Added args for redirecting http vs to https vs
+    parser.add_argument('--redirect', help='redirect http vs to https vs if '
+                               'there is no pool assigned', action="store_true")
 
+    # Ansible tags
+    parser.add_argument('--ansible', help='Flag for create ansible file',
+                        action="store_true")
+
+    parser.add_argument('--vs_level_status', action='store_true',
+                        help='Add columns of vs reference and overall skipped '
+                             'settings in status excel sheet')
 
     args = parser.parse_args()
     netscaler_converter = NetscalerConverter(args)

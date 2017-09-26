@@ -6,16 +6,15 @@ import re
 import copy
 import random
 import avi.migrationtools.netscaler_converter.ns_constants as ns_constants
-
-from avi.migrationtools.netscaler_converter import ns_util
 from avi.migrationtools.netscaler_converter.ns_constants \
     import (STATUS_SKIPPED, STATUS_SUCCESSFUL, STATUS_DATASCRIPT,
             OBJECT_TYPE_POOL_GROUP, OBJECT_TYPE_STRING_GROUP)
-
+from avi.migrationtools.netscaler_converter.ns_util import NsUtil
 
 
 LOG = logging.getLogger(__name__)
-
+# Creating  object for util library.
+ns_util = NsUtil()
 
 class PolicyConverter(object):
     """
@@ -87,7 +86,6 @@ class PolicyConverter(object):
         policy_obj = {
             'name': '',
             'tenant_ref': self.tenant_ref,
-            'enable': 'false',
         }
 
         is_policy_obj = False
@@ -161,7 +159,7 @@ class PolicyConverter(object):
                 policy_name, policy_config, rewrite_policy_config,
                 responder_policy_config)
 
-            if not policy or not type:
+            if not policy:
                 skipped_status = 'Skipped: Policy is not created %s' \
                                  % bind_lb_netscalar_complete_command
                 if not policy_type:

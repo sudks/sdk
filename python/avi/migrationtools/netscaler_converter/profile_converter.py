@@ -3,30 +3,26 @@ import os
 import re
 import yaml
 import avi.migrationtools.netscaler_converter.ns_constants as ns_constants
-import avi.migrationtools.netscaler_converter.ns_util as ns_util
-
 from datetime import datetime
 from OpenSSL import crypto as c
 from avi.migrationtools.netscaler_converter.ns_constants \
     import (STATUS_SKIPPED, STATUS_SUCCESSFUL, STATUS_INDIRECT,
             STATUS_MISSING_FILE, STATUS_COMMAND_NOT_SUPPORTED)
+from avi.migrationtools.netscaler_converter.monitor_converter \
+    import merge_object_mapping
+from avi.migrationtools.netscaler_converter.ns_util import NsUtil
 
 LOG = logging.getLogger(__name__)
-
+# Creating f5 object for util library.
+ns_util = NsUtil()
 tmp_ssl_key_and_cert_list = []
 tmp_pki_profile_list = []
-# Define Dict of merge_profile_mapping to update the merged profile name of
-# ssl_profile, application_profile, network_profile
-merge_profile_mapping = {
-    'ssl_profile': {},
-    'app_profile': {},
-    'network_profile': {}
-}
+app_merge_count = {'count': 0}
 
 
 class ProfileConverter(object):
     def __init__(self, tenant_name, cloud_name, tenant_ref, cloud_ref,
-                 ssl_ciphers, profile_merge_check, user_ignore, prefix,
+                 ssl_ciphers, object_merge_check, user_ignore, prefix,
                  keypassphrase=None):
         """
         Construct a new 'ProfileConverter' object.
@@ -36,7 +32,7 @@ class ProfileConverter(object):
         :param cloud_ref: Cloud Reference
         :param ssl_ciphers: Object of list of supported and
         non supported ssl ciphers
-        :param profile_merge_check: Bool value for profile merge
+        :param object_merge_check: Bool value for object merge
         :param user_ignore: Dict of user ignore attributes
         :param prefix: prefix for objects
         :param keypassphrase: path of passphrase yaml file
@@ -95,11 +91,11 @@ class ProfileConverter(object):
         self.cloud_name = cloud_name
         self.tenant_ref = tenant_ref
         self.cloud_ref = cloud_ref
-        self.profile_merge_check = profile_merge_check
+        self.object_merge_check = object_merge_check
         # Initialize merge count of ssl, application, network profiles
         self.ssl_merge_count = 0
-        self.application_merge_count = 0
         self.network_merge_count = 0
+        self.pki_merge_count = 0
         # ssl cipher yaml
         self.supported_netscaler_to_open_ssl_cipher = ssl_ciphers.get(
             'supported_netscaler_to_open_ssl_cipher', {})
@@ -136,8 +132,12 @@ class ProfileConverter(object):
             self.netscalar_passphrase_keys = yaml.safe_load(open(keypassphrase))
         # Added prefix for objects
         self.prefix = prefix
+        # Progressbar count and total size.
+        self.progressbar_count = 0
+        self.total_size = 0
 
-    def convert(self, ns_config, avi_config, input_dir):
+    def convert(self, ns_config, avi_config, input_dir, sysdict):
+
         """
         This function defines that convert netscalar profiles to avi profiles
         :param ns_config: It is dict of all netscalar commands which are
@@ -159,15 +159,16 @@ class ProfileConverter(object):
         bind_ssl_service = ns_config.get('bind ssl service', {})
         set_ssl_service_group = ns_config.get('set ssl serviceGroup', {})
         bind_ssl_service_group = ns_config.get('bind ssl serviceGroup', {})
-
-        avi_config['ApplicationProfile'] = []
-        avi_config['NetworkProfile'] = []
         avi_config["SSLKeyAndCertificate"] = []
-        avi_config["SSLProfile"] = []
-        avi_config["PKIProfile"] = []
         LOG.debug("Conversion started for HTTP profiles")
+        # Calculate total object length for progress bar.
+        self.total_size = len(http_profiles.keys()) + len(tcp_profiles.keys()) \
+                          + len(set_ssl_service) + len(ssl_vs_mapping) + \
+                          len(set_ssl_service_group) + len(ssl_mappings)
+        print "Converting Profiles.."
         for key in http_profiles.keys():
             ns_http_profile_command = 'add ns httpProfile'
+            self.progressbar_count += 1
             profile = http_profiles[key]
             ns_http_profile_complete_command = \
                 ns_util.get_netscalar_full_command(ns_http_profile_command,
@@ -182,27 +183,30 @@ class ProfileConverter(object):
                 ns_util.add_conv_status(
                     profile['line_no'], ns_http_profile_command, key,
                     ns_http_profile_complete_command, conv_status, app_profile)
-                if self.profile_merge_check:
+                if self.object_merge_check:
                     # Check application profile is duplicate of other
                     # application profile then skipped this application
                     # profile and increment of count of
                     # application_merge_count
-                    dup_of = ns_util.update_skip_duplicates(
-                        app_profile, avi_config['ApplicationProfile'],
-                        'app_profile', merge_profile_mapping, key)
+                    dup_of = ns_util.update_skip_duplicates(app_profile,
+                                avi_config['ApplicationProfile'], 'app_profile',
+                                merge_object_mapping, key, 'HTTP', self.prefix,
+                                                sysdict['ApplicationProfile'])
                     if dup_of:
-                        self.application_merge_count += 1
+                        app_merge_count['count'] += 1
                     else:
                         avi_config['ApplicationProfile'].append(app_profile)
 
                 else:
                     avi_config['ApplicationProfile'].append(app_profile)
-
+            msg = "Application profile conversion started..."
+            ns_util.print_progress_bar(self.progressbar_count, self.total_size, msg,
+                                     prefix='Progress', suffix='')
         LOG.debug("HTTP profiles conversion completed")
-
         LOG.debug("Conversion started for TCP profiles")
         for key in tcp_profiles.keys():
             ns_tcp_profile_command = 'add ns tcpProfile'
+            self.progressbar_count += 1
             profile = tcp_profiles[key]
             ns_tcp_profile_complete_command = \
                 ns_util.get_netscalar_full_command(ns_tcp_profile_command,
@@ -217,26 +221,29 @@ class ProfileConverter(object):
                 ns_util.add_conv_status(
                     profile['line_no'], ns_tcp_profile_command, key,
                     ns_tcp_profile_complete_command, conv_status, net_profile)
-                if self.profile_merge_check:
+                if self.object_merge_check:
                     # Check network profile is duplicate of other
                     # network profile then skipped this application
                     # profile and increment of count of
                     # network_merge_count
-                    dup_of = ns_util.update_skip_duplicates(
-                        net_profile, avi_config['NetworkProfile'],
-                        'network_profile', merge_profile_mapping, key)
+                    dup_of = ns_util.update_skip_duplicates(net_profile,
+                            avi_config['NetworkProfile'], 'network_profile',
+                            merge_object_mapping, key, 'TCP', self.prefix,
+                                                    sysdict['NetworkProfile'])
                     if dup_of:
                         self.network_merge_count += 1
                     else:
                         avi_config['NetworkProfile'].append(net_profile)
                 else:
                     avi_config['NetworkProfile'].append(net_profile)
+            msg = "TCP profile conversion started..."
+            ns_util.print_progress_bar(self.progressbar_count, self.total_size,
+                                     msg, prefix='Progress', suffix='')
         LOG.debug("TCP profiles conversion completed")
-
         LOG.debug("Conversion started for SSL profiles")
-
         for key in ssl_mappings:
             mapping = ssl_mappings[key]
+            self.progressbar_count += 1
             if isinstance(mapping, dict):
                 mapping = [mapping]
             obj = self.get_key_cert(mapping, ssl_key_and_cert,
@@ -245,30 +252,47 @@ class ProfileConverter(object):
             if obj.get('cert', None):
                 avi_config["SSLKeyAndCertificate"].append(obj.get('cert'))
             if obj.get('pki', None):
-                avi_config["PKIProfile"].append(obj.get('pki'))
-
+                if self.object_merge_check:
+                    # Check pki profile is duplicate of other pki profile then
+                    # skipped this pki profile and increment of count of
+                    # pki_merge_count
+                    dup_of = ns_util.update_skip_duplicates(obj['pki'],
+                              avi_config['PKIProfile'], 'pki_profile',
+                              merge_object_mapping, obj['pki']['name'], None,
+                                            self.prefix, sysdict['PKIProfile'])
+                    if dup_of:
+                        self.pki_merge_count += 1
+                    else:
+                        avi_config["PKIProfile"].append(obj['pki'])
+                else:
+                    avi_config["PKIProfile"].append(obj['pki'])
+            msg = "SSL profile conversion started..."
+            ns_util.print_progress_bar(self.progressbar_count, self.total_size,
+                                         msg, prefix='Progress', suffix='')
         # set ssl vserver conversion
         self.convert_ssl_service_profile(
             set_ssl_service, bind_ssl_service, ssl_key_and_cert, input_dir,
-            ns_config, avi_config, 'set ssl service', 'bind ssl service')
+            ns_config, avi_config, 'set ssl service', 'bind ssl service',
+            sysdict)
 
         # Set ssl service conversion
         self.convert_ssl_service_profile(
             ssl_vs_mapping, ssl_mappings, ssl_key_and_cert, input_dir,
-            ns_config, avi_config, 'set ssl vserver', 'bind ssl vserver')
+            ns_config, avi_config, 'set ssl vserver', 'bind ssl vserver',
+            sysdict)
 
         # Set ssl servicegroup conversion
         self.convert_ssl_service_profile(
             set_ssl_service_group, bind_ssl_service_group, ssl_key_and_cert,
             input_dir, ns_config, avi_config, 'set ssl serviceGroup',
-            'bind ssl serviceGroup')
+            'bind ssl serviceGroup', sysdict)
 
         LOG.debug("SSL profiles conversion completed")
 
     def convert_ssl_service_profile(self, set_ssl_service, bind_ssl_service,
                                     ssl_key_and_cert, input_dir, ns_config,
                                     avi_config, set_ssl_service_command,
-                                    bind_ssl_service_command):
+                                    bind_ssl_service_command, sysdict):
         """
         This function defines that convert ssl profiles
         :param set_ssl_service: dict of set_ssl_service netscalar command
@@ -284,6 +308,7 @@ class ProfileConverter(object):
         """
 
         for key in set_ssl_service:
+            self.progressbar_count += 1
             ssl_service = set_ssl_service[key]
             full_set_ssl_service_command = ns_util.get_netscalar_full_command(
                 set_ssl_service_command, ssl_service)
@@ -336,8 +361,21 @@ class ProfileConverter(object):
             if obj.get('cert', None):
                 avi_config["SSLKeyAndCertificate"].append(obj.get('cert'))
             if obj.get('pki', None):
-                avi_config["PKIProfile"].append(obj.get('pki'))
-            if self.profile_merge_check:
+                if self.object_merge_check:
+                    # Check pki profile is duplicate of other pki profile then
+                    # skipped this pki profile and increment of count of
+                    # pki_merge_count
+                    dup_of = ns_util.update_skip_duplicates(obj['pki'],
+                                avi_config['PKIProfile'], 'pki_profile',
+                                merge_object_mapping, obj['pki']['name'], None,
+                                            self.prefix, sysdict['PKIProfile'])
+                    if dup_of:
+                        self.pki_merge_count += 1
+                    else:
+                        avi_config["PKIProfile"].append(obj['pki'])
+                else:
+                    avi_config["PKIProfile"].append(obj['pki'])
+            if self.object_merge_check:
                 # Check ssl profile is duplicate of other ssl profile then
                 # skipped this application profile and increment of count
                 # of ssl_merge_count
@@ -346,7 +384,8 @@ class ProfileConverter(object):
                     ssl_profile_name = self.prefix + '-' + ssl_profile_name
                 dup_of = ns_util.update_skip_duplicates(
                     ssl_profile, avi_config['SSLProfile'], 'ssl_profile',
-                    merge_profile_mapping, ssl_profile_name)
+                    merge_object_mapping, ssl_profile_name, None,
+                    self.prefix, sysdict['SSLProfile'])
                 if dup_of:
                     self.ssl_merge_count += 1
                 else:
@@ -362,6 +401,9 @@ class ProfileConverter(object):
             ns_util.add_conv_status(
                 ssl_service['line_no'], set_ssl_service_command, key,
                 full_set_ssl_service_command, conv_status, ssl_profile)
+            msg = "SSL Service conversion started..."
+            ns_util.print_progress_bar(self.progressbar_count, self.total_size,
+                                     msg, prefix='Progress', suffix='')
 
         LOG.debug("SSL profiles conversion completed")
 
@@ -374,11 +416,12 @@ class ProfileConverter(object):
 
         app_profile = dict()
         try:
+            prof_name = profile['attrs'][0]
             # Added prefix for objects
             if self.prefix:
-                profile['attrs'][0] = self.prefix + '-' + profile['attrs'][0]
-            LOG.debug("Converting httpProfile: %s" % profile['attrs'][0])
-            app_profile['name'] = profile['attrs'][0]
+                prof_name = self.prefix + '-' + prof_name
+            LOG.debug("Converting httpProfile: %s" % prof_name)
+            app_profile['name'] = prof_name
             app_profile['tenant_ref'] = self.tenant_ref
             app_profile['type'] = 'APPLICATION_PROFILE_TYPE_HTTP'
             http_profile = dict()
@@ -394,7 +437,7 @@ class ProfileConverter(object):
             http_profile['websockets_enabled'] = websockets
             app_profile["http_profile"] = http_profile
             LOG.debug("Conversion completed successfully for httpProfile: %s" %
-                      profile['attrs'][0])
+                      prof_name)
         except:
             LOG.error("Error in convertion of httpProfile", exc_info=True)
 
@@ -409,9 +452,10 @@ class ProfileConverter(object):
 
         ntwk_profile = None
         try:
+            prof_name = profile['attrs'][0]
             # Added prefix for objects
             if self.prefix:
-                profile['attrs'][0] = self.prefix + '-' + profile['attrs'][0]
+                prof_name = self.prefix + '-' + prof_name
             nagle = profile.get("nagle", 'DISABLED')
             nagle = False if nagle == 'DISABLED' else True
             mss = profile.get("mss", 0)
@@ -423,11 +467,12 @@ class ProfileConverter(object):
                         "nagles_algorithm": nagle,
                         "max_segment_size": int(mss),
                         "use_interface_mtu": mtu,
-                        "receive_window": int(int(window) / 1024)
+                        "receive_window": int(int(window) / 1024),
+                        'automatic': False
                     },
                     "type": "PROTOCOL_TYPE_TCP_PROXY"
                 },
-                "name": profile['attrs'][0],
+                "name": prof_name,
                 "tenant_ref": self.tenant_ref
             }
         except:
@@ -545,11 +590,11 @@ class ProfileConverter(object):
                         pki_profile['crl_check'] = False
                     if crl_str:
                         pki_profile["crls"] = [{'body': crl_str}]
+                    pki_name = mapping['attrs'][0]
                     # Added prefix for objects
                     if self.prefix:
-                        mapping['attrs'][0] = self.prefix + '-' + \
-                                              mapping['attrs'][0]
-                    pki_profile["name"] = mapping['attrs'][0]
+                        pki_name = self.prefix + '-' + pki_name
+                    pki_profile["name"] = pki_name
                     pki_profile["tenant_ref"] = self.tenant_ref
                     obj['pki'] = pki_profile
                     output = pki_profile
@@ -601,15 +646,8 @@ class ProfileConverter(object):
                         input_dir + os.path.sep + key_file_name)
 
                 if cert and key:
-                    cert_date = c.load_certificate(c.FILETYPE_PEM,
-                                                   file(input_dir + os.path.sep
-                                                        + cert_file_name).read())
-                    expiry_date = datetime.strptime(cert_date.get_notAfter(),
-                                                    "%Y%m%d%H%M%SZ")
-                    present_date = datetime.now()
-                    if expiry_date < present_date:
-                        LOG.warning("Certificate %s is expired creating self "
-                                    "signed cert." % cert_file_name)
+                    if not ns_util.check_certificate_expiry(input_dir,
+                                                        cert_file_name):
                         cert, key = None, None
 
                 key_passphrase = None
