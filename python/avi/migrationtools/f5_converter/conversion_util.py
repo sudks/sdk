@@ -993,10 +993,50 @@ class F5Util(MigrationUtil):
         else:
             return 'APPLICATION_PROFILE_TYPE_HTTP'
 
-    def update_pool_for_service_port(self, pool_list, pool_name):
+    def update_pool_for_service_port(self, pool_list, pool_name, hm_list,
+                                     sys_hm_list):
+        rem_hm = []
         pool = [obj for obj in pool_list if obj['name'] == pool_name]
         if pool:
             pool[0]['use_service_port'] = True
+            # Checking monitor ports if use_service_port is true
+            if pool[0].get('health_monitor_refs'):
+                for hm in pool[0]['health_monitor_refs']:
+                    hm_name = self.get_name(hm)
+                    hm_ob = [ob for ob in (hm_list + sys_hm_list) if
+                             ob['name'] == hm_name]
+                    if hm_ob and (not hm_ob[0].get('monitor_port')):
+                        rem_hm.append(hm)
+                        LOG.debug("Removing monitor reference of %s from pool"
+                                  " %s as 'use_service_port' is true but "
+                                  "monitor has no port", hm_name,
+                                  pool_name)
+                if rem_hm:
+                    pool[0]['health_monitor_refs'] = [h_monitor for h_monitor in
+                                                  pool[0]['health_monitor_refs']
+                                                     if h_monitor not in rem_hm]
+                    rem_hm = [self.get_name(hmonitor) for hmonitor in rem_hm]
+                    csv_row = [cl for cl in csv_writer_dict_list if cl[
+                               'F5 type'] == 'pool' and self.get_tenant_ref(cl[
+                               'F5 ID'])[1] == pool_name]
+                    if csv_row:
+                        if csv_row[0]['Skipped settings'] in ('[]', ''):
+                            csv_row[0]['Skipped settings'] = str([{
+                                                            'monitor': rem_hm}])
+                        else:
+                            init_val = eval(csv_row[0]['Skipped settings'])
+                            if not isinstance(init_val, list):
+                                init_val = [init_val]
+                            mon_val = [val['monitor'].extend(rem_hm) for val in
+                                      init_val if isinstance(val, dict) and
+                                      'monitor' in val]
+                            if bool(mon_val):
+                                csv_row[0]['Skipped settings'] = str(init_val)
+                            else:
+                                init_val.append({'monitor': rem_hm})
+                                csv_row[0]['Skipped settings'] = str(init_val)
+                        csv_row[0]['Status'] = conv_const.STATUS_PARTIAL
+                        csv_row[0]['Avi Object'] = str({'pools': pool})
 
     def rreplace(self, s, old, new, occurrence):
         li = s.rsplit(old, occurrence)
@@ -1766,7 +1806,8 @@ class F5Util(MigrationUtil):
         :return:
         """
         for vs_obj in aviconfig['VirtualService']:
-            if len(vs_obj['services']) > 1:
+            if vs_obj.get('services') and len(vs_obj['services']) > 1 and \
+                    vs_obj.get('application_profile_ref'):
                 app_profile = self.get_name(vs_obj['application_profile_ref'])
                 app_profile_obj = [app for app in sys_dict[
                         'ApplicationProfile'] + aviconfig['ApplicationProfile']
@@ -1779,7 +1820,26 @@ class F5Util(MigrationUtil):
                                 self.get_object_ref('System-HTTP',
                                     conv_const.OBJECT_TYPE_APPLICATION_PROFILE,
                                                     tenant)
-
+                            LOG.debug('Changed the application profile '
+                                      'reference from L4 to System-HTTP')
+                            if vs_obj.get('network_profile_ref'):
+                                nw_profile = self.get_name(vs_obj[
+                                                         'network_profile_ref'])
+                                nw_profile_obj = [nw for nw in sys_dict[
+                                                  'NetworkProfile'] + aviconfig[
+                                                  'NetworkProfile'] if
+                                                  nw['name'] == nw_profile]
+                                if nw_profile_obj and nw_profile_obj[0][
+                                    'profile']['type'] != \
+                                        'PROTOCOL_TYPE_TCP_PROXY':
+                                    LOG.debug('Changed the network profile '
+                                              'reference from %s to TCP-Proxy',
+                                              nw_profile_obj[0]['profile'][
+                                              'type'])
+                                    vs_obj['network_profile_ref'] = \
+                                        self.get_object_ref('System-TCP-Proxy',
+                                         conv_const.OBJECT_TYPE_NETWORK_PROFILE,
+                                                    tenant)
                             break
 
     def set_pool_group_vrf(self, pool_ref, vrf_ref, avi_config):
@@ -1961,6 +2021,33 @@ class F5Util(MigrationUtil):
                     skipped_setting['Httppolicy'] = {}
                     skipped_setting['Httppolicy']['name'] = policy_set_name
                 skipped_setting['Httppolicy']['Pool'] = pool_skipped_settings
+
+    def remove_pool_group_vrf(self, pool_ref, avi_config):
+        """
+        This method will remove vrf_ref for all pools in poolgroup
+        :param pool_ref: pool group name
+        :param avi_config: avi config json
+        :return:
+        """
+        pg_obj = [poolgrp for poolgrp in avi_config['PoolGroup'] if
+                  poolgrp['name'] == pool_ref]
+        if pg_obj:
+            for member in pg_obj[0]['members']:
+                poolname = self.get_name(member.get('pool_ref'))
+                self.remove_pool_vrf(poolname, avi_config)
+
+    def remove_pool_vrf(self, pool_ref, avi_config):
+        """
+        This method will remove vrf_ref for pool
+        :param pool_ref: pool name
+        :param avi_config: avi config json
+        :return:
+        """
+        pool_obj = [pool for pool in avi_config['Pool'] if pool['name'] ==
+                    pool_ref]
+        if pool_obj and pool_obj[0].get('vrf_ref'):
+            pool_obj[0].pop('vrf_ref')
+            LOG.debug("Removed vrf ref from the pool %s", pool_ref)
 
 
 
