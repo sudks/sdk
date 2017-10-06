@@ -48,8 +48,6 @@ def config_converter(file_name):
     # jut to parse the stuffs
     for vip in parsed_output['answer vip']:
         try:
-            # print vip
-            # sys.exit()
             loc = find_location(parsed_output['answer vip'],
                                 vip['answer vip'],
                                 'answer vip')
@@ -204,7 +202,6 @@ def config_converter(file_name):
     combined_dict_az = copy.deepcopy(combined_dict_temp)
 
     merge_list = list()
-    print combined_dict.keys()
     for keys in combined_dict_az:
         if keys in merge_list:
             continue
@@ -212,21 +209,16 @@ def config_converter(file_name):
         if combined_dict_az[keys].get('domain', []) and combined_dict[keys].get('clause', []):
             for d in combined_dict_az[keys]['domain']:
                 domains.append(d['domain'])
-            # print combined_dict_az[keys]
         for keys1 in combined_dict_az:
             domains1 = list()
             if keys1 in merge_list:
                 continue
             if keys == keys1:
                 continue
-            # print combined_dict_az[keys1]
             if combined_dict_az[keys1].get('domain', []) and combined_dict[keys1].get('clause', []):
                 for d in combined_dict_az[keys1]['domain']:
                     domains1.append(d['domain'])
                 if set(domains) & set(domains1):
-                    # print "domains is :", domains, domains1
-                    # print "TOP:", combined_dict_temp[keys1]['clause']
-                    # print "BOTTOM", combined_dict_temp[keys]['clause']
                     merge = 1
 
                     # skipping duplicate memebers
@@ -243,10 +235,7 @@ def config_converter(file_name):
                         if flag == 1:
                             combined_dict_temp[keys]['clause'].append(items_c)
 
-                    # combined_dict_temp[keys]['clause'].extend(combined_dict_temp[keys1]['clause'])
                     combined_dict_temp.pop(keys1)
-                    # combined_dict_temp[keys + '_merged'] = combinedgss_config_convertor.py
-                    # _dict_temp.pop(keys)
                     merge_list.append(keys)
                     merge_list.append(keys1)
 
@@ -258,25 +247,20 @@ def config_converter(file_name):
             combined_dict_temp[keyy]['clause'][row_num]['clause'] = temp_prioriy
 
     # Temp fix for duplicate members on same answer-group
+    # Deleting duplicate memebers
     key = None
     combined_dict = copy.deepcopy(combined_dict_temp)
     for key in combined_dict:
         temp_list = []
         kill = 0
-        print "$$$$$$$$$$$$$$$$$$$$$$$$"
         for val in combined_dict[key]['clause']:
             if val['vip-group'] in temp_list:
                 kill = 1
                 break
             else:
                 temp_list.append(val['vip-group'])
-        print temp_list
         if kill == 1:
             del combined_dict_temp[key]
-
-    # print combined_dict
-
-    # sys.exit(1)
 
     LOG.info('Convertor completed')
     return combined_dict_temp
