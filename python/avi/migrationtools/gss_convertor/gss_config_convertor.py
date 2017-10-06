@@ -247,7 +247,7 @@ def config_converter(file_name):
             combined_dict_temp[keyy]['clause'][row_num]['clause'] = temp_prioriy
 
     # Temp fix for duplicate members on same answer-group
-    # Deleting duplicate memebers
+    # Deleting duplicate members
     key = None
     combined_dict = copy.deepcopy(combined_dict_temp)
     for key in combined_dict:
