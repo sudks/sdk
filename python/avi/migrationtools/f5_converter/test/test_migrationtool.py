@@ -6,6 +6,7 @@ f5 converter tool along with its options / parameters
 import logging
 import os
 import subprocess
+import sys
 
 import pytest
 import yaml
@@ -17,6 +18,26 @@ from avi.migrationtools.test.common.test_clean_reboot \
     import verify_controller_is_up, clean_reboot
 
 config_file = pytest.config.getoption("--config")
+input_file = pytest.config.getoption("--file")
+input_file_version = pytest.config.getoption("--fileVersion")
+
+input_file_v10 = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                'bigip_v10.conf'))
+input_file_v11 = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                'bigip_v11.conf'))
+v10 = '10'
+v11 = '11'
+
+if input_file_version == '10' and input_file:
+    v10 = '10'
+    input_file_v10 = input_file
+elif input_file_version == '11' and input_file:
+    v11 = '11'
+    input_file_v11 = input_file
+elif any([input_file_version, input_file]):
+    print("Both arguments 'input_file_version' and 'input_file' are mandatory")
+    sys.exit(0)
+
 
 with open(config_file) as f:
     file_attribute = yaml.load(f)
@@ -24,8 +45,8 @@ with open(config_file) as f:
 setup = dict(
     controller_version_v16=file_attribute['controller_version_v16'],
     controller_version_v17=file_attribute['controller_version_v17'],
-    file_version_v10='10',
-    file_version_v11='11',
+    file_version_v10= v10,
+    file_version_v11= v11,
     version=True,
     option=file_attribute['option'],
     controller_ip_17_1_1=file_attribute['controller_ip_17_1_1'],
@@ -44,10 +65,8 @@ setup = dict(
     cloud_name=file_attribute['cloud_name'],
     tenant=file_attribute['tenant'],
     input_folder_location='',
-    config_file_name_v10=os.path.abspath(
-        os.path.join(os.path.dirname(__file__), 'bigip_v10.conf')),
-    config_file_name_v11=os.path.abspath(
-        os.path.join(os.path.dirname(__file__), 'bigip_v11.conf')),
+    config_file_name_v10=input_file_v10,
+    config_file_name_v11=input_file_v11,
     partition_config='new',  # this is new
     f5_key_file='cd_rt_key.pem',
     ignore_config=os.path.abspath(os.path.join(os.path.dirname(__file__),

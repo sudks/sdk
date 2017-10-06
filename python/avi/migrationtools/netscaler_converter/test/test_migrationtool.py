@@ -17,6 +17,10 @@ from avi.migrationtools.test.common.test_clean_reboot \
     import verify_controller_is_up, clean_reboot
 
 config_file = pytest.config.getoption("--config")
+input_file = pytest.config.getoption("--file")
+
+if input_file is None:
+    input_file = 'ns.conf'
 
 with open(config_file) as f:
     file_attribute = yaml.load(f)
@@ -40,7 +44,7 @@ setup = dict(
     cloud_name=file_attribute['cloud_name'],
     tenant=file_attribute['tenant'],
     input_folder_location='',
-    config_file_name='ns.conf',
+    config_file_name=input_file,
     config_file_name_passphrase='ns_passphrase.conf',
     ns_passphrase_file='passphrase.yaml',
     ns_key_file='cd_rt_key.pem',
