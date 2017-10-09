@@ -198,55 +198,17 @@ def config_converter(file_name):
     set_total_stats('no_member', no_member_count)
 
     # fix for multiple az
-
-    combined_dict_az = copy.deepcopy(combined_dict_temp)
-
-    merge_list = list()
-    for keys in combined_dict_az:
-        if keys in merge_list:
-            continue
-        domains = list()
-        if combined_dict_az[keys].get('domain', []) and combined_dict[keys].get('clause', []):
-            for d in combined_dict_az[keys]['domain']:
-                domains.append(d['domain'])
-        for keys1 in combined_dict_az:
-            domains1 = list()
-            if keys1 in merge_list:
-                continue
-            if keys == keys1:
-                continue
-            if combined_dict_az[keys1].get('domain', []) and combined_dict[keys1].get('clause', []):
-                for d in combined_dict_az[keys1]['domain']:
-                    domains1.append(d['domain'])
-                if set(domains) & set(domains1):
-                    merge = 1
-
-                    # skipping duplicate memebers
-                    child_members = combined_dict_temp[keys1]['clause']
-                    parent_members = combined_dict_temp[keys]['clause']
-                    for index_c, items_c in enumerate(child_members):
-                        flagg = 0
-                        for items_p in parent_members:
-                            if items_c['vip-group'] == items_p['vip-group']:
-                                flag = 0
-                                break
-                            else:
-                                flag = 1
-                        if flag == 1:
-                            combined_dict_temp[keys]['clause'].append(items_c)
-
-                    combined_dict_temp.pop(keys1)
-                    merge_list.append(keys)
-                    merge_list.append(keys1)
+    combined_dict_temp = remove_multiple_az(combined_dict_temp, combined_dict)
 
     # Temp fix for priority duplicate value
-    for keyy in combined_dict_temp:
-        temp_prioriy = 0
-        for row_num, row_val in enumerate(combined_dict_temp[keyy]['clause']):
-            temp_prioriy += 1
-            combined_dict_temp[keyy]['clause'][row_num]['clause'] = temp_prioriy
+    # Assigning random priority to avoid conflict
+    for key in combined_dict_temp:
+        temp_priority = 0
+        for row_num, row_val in enumerate(combined_dict_temp[key]['clause']):
+            temp_priority += 1
+            combined_dict_temp[key]['clause'][row_num]['clause'] = temp_priority
 
-    # Temp fix for duplicate members on same answer-group
+    # Fix for duplicate members on same answer-group
     # Deleting duplicate members
     key = None
     combined_dict = copy.deepcopy(combined_dict_temp)
@@ -263,6 +225,54 @@ def config_converter(file_name):
             del combined_dict_temp[key]
 
     LOG.info('Convertor completed')
+    return combined_dict_temp
+
+
+def remove_multiple_az(combined_dict_temp, combined_dict):
+    """ check the domains , and if the same available
+        merge the domains into single az
+    """
+    combined_dict_az = copy.deepcopy(combined_dict_temp)
+    merge_list = list()
+    for keys in combined_dict_az:
+        if keys in merge_list:
+            continue
+        domains = list()
+        if combined_dict_az[keys].get('domain', []) and combined_dict[keys].get('clause', []):
+            for domain in combined_dict_az[keys]['domain']:
+                domains.append(domain['domain'])
+        for keys1 in combined_dict_az:
+            domains1 = list()
+            if keys1 in merge_list or keys == keys1:
+                continue
+            if combined_dict_az[keys1].get('domain', []) and combined_dict[keys1].get('clause', []):
+                for domain in combined_dict_az[keys1]['domain']:
+                    domains1.append(domain['domain'])
+                if set(domains) & set(domains1):
+                    # skipping duplicate members
+                    child_members = combined_dict_temp[keys1]['clause']
+                    parent_members = combined_dict_temp[keys]['clause']
+                    combined_dict_temp = skip_duplicate(keys, child_members, parent_members,
+                                                        combined_dict_temp)
+                    combined_dict_temp.pop(keys1)
+                    merge_list.append(keys)
+                    merge_list.append(keys1)
+
+    return combined_dict_temp
+
+
+def skip_duplicate(keys, child_members, parent_members, combined_dict_temp):
+    """ Skipping duplicate by deleting from configuration """
+    for items_c in child_members:
+        flag = 0
+        for items_p in parent_members:
+            if items_c['vip-group'] == items_p['vip-group']:
+                flag = 0
+                break
+            else:
+                flag = 1
+        if flag == 1:
+            combined_dict_temp[keys]['clause'].append(items_c)
     return combined_dict_temp
 
 
