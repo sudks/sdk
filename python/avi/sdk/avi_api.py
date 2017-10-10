@@ -10,6 +10,8 @@ from requests.sessions import Session
 from ssl import SSLError
 
 logger = logging.getLogger(__name__)
+
+global sessionDict
 sessionDict = {}
 
 def avi_timedelta(td):
@@ -216,34 +218,27 @@ class ApiSession(Session):
 
         # Refer Notes 01 and 02
         k_port = port if port else 443
-        if controller_ip.startswith('http'):
-            k_port = 80 if not port else k_port
-            if port is None or port == 80:
-                self.prefix = controller_ip
+        if self.avi_credentials.controller.startswith('http'):
+            k_port = 80 if not self.avi_credentials.port else k_port
+            if self.avi_credentials.port is None or self.avi_credentials.port\
+                    == 80:
+                self.prefix = self.avi_credentials.controller
             else:
-                self.prefix = '{x}:{y}'.format(x=controller_ip, y=port)
+                self.prefix = '{x}:{y}'.format(
+                    x=self.avi_credentials.controller,
+                    y=self.avi_credentials.port)
         else:
             if port is None or port == 443:
-                self.prefix = 'https://{x}'.format(x=controller_ip)
+                self.prefix = 'https://{x}'.format(
+                    x=self.avi_credentials.controller)
             else:
-                self.prefix = 'https://{x}:{y}'.format(x=controller_ip, y=port)
+                self.prefix = 'https://{x}:{y}'.format(
+                    x=self.avi_credentials.controller,
+                    y=self.avi_credentials.port)
         self.timeout = timeout
-        self.key = '%s:%s:%s' % (controller_ip, username, k_port)
-        # try:
-        #     user_session = sessionDict[self.key]["api"]
-        # except KeyError:
-        #     logger.debug("Session does not exist; Creating new session for %s",
-        #                  self.key)
-        #     self.authenticate_session()
-        #     sessionDict[self.key] = \
-        #         {"api": self, "last_used": datetime.utcnow()}
-        #     user_session = self
-        # don't save the tenant headers as it would interfere with the
-        # individual method tenant overrides
-        # for hdr in self.SHARED_USER_HDRS:
-        #     if hdr in user_session.headers:
-        #         self.headers[hdr] = user_session.headers[hdr]
-        # self.cookies = user_session.cookies
+        self.key = '%s:%s:%s' % (self.avi_credentials.controller,
+                                 self.avi_credentials.username, k_port)
+        sessionDict[self.key] = {'api': self, "last_used": datetime.utcnow()}
         self.num_session_retries = 0
         self.pid = os.getpid()
         ApiSession._clean_inactive_sessions()
@@ -269,10 +264,18 @@ class ApiSession(Session):
         :param retry_conxn_errors: retry on connection errors
         :param api_version: Controller API version
         """
-        k_port = port if port else 443
-        if controller_ip.startswith('http'):
-            k_port = 80 if not port else k_port
-        key = '%s:%s:%s' % (controller_ip, username, k_port)
+        if not avi_credentials:
+            tenant = tenant if tenant else "admin"
+            avi_credentials = AviCredentials(
+                controller=controller_ip, username=username, password=password,
+                api_version=api_version, tenant=tenant, tenant_uuid=tenant_uuid,
+                token=token, port=port, timeout=timeout)
+
+        k_port = avi_credentials.port if avi_credentials.port else 443
+        if avi_credentials.controller.startswith('http'):
+            k_port = 80 if not avi_credentials.port else k_port
+        key = '%s:%s:%s' % (avi_credentials.controller,
+                            avi_credentials.username, k_port)
         cached_session = sessionDict.get(key)
         if cached_session:
             user_session = cached_session['api']
@@ -323,11 +326,12 @@ class ApiSession(Session):
 
         if rsp.cookies and 'csrftoken' in rsp.cookies:
             csrftoken = rsp.cookies['csrftoken']
-            sessionDict[self.key] = {'csrftoken': csrftoken,
-                                     'cookie': self.cookies,
-                                     'last_used': datetime.utcnow(),
-                                     'api': self
-                                     }
+            sessionDict[self.key] = {
+                'csrftoken': csrftoken,
+                'cookie': self.cookies,
+                'last_used': datetime.utcnow(),
+                'api': self
+            }
         logger.debug("authentication success for user %s",
                      self.avi_credentials.username)
         return
@@ -337,21 +341,18 @@ class ApiSession(Session):
         """
         returns the headers that are passed to the requests.Session api calls.
         """
-        global sessionDict
-
         api_hdrs = copy.deepcopy(self.headers)
         api_hdrs.update({
             "Referer": self.prefix,
             "Content-Type": "application/json"
         })
         api_hdrs['timeout'] = str(timeout)
-        if self.key in sessionDict:
+        if self.key in sessionDict and 'csrftoken' in sessionDict.get(self.key):
             api_hdrs['X-CSRFToken'] = sessionDict.get(self.key)['csrftoken']
             self.cookies = sessionDict.get(self.key)['cookie']
         else:
             self.authenticate_session()
             api_hdrs['X-CSRFToken'] = sessionDict.get(self.key)['csrftoken']
-        # print 'Token : ----->', api_hdrs['X-CSRFToken']
         if api_version:
             api_hdrs['X-Avi-Version'] = api_version
         elif self.avi_credentials.api_version:
@@ -399,8 +400,6 @@ class ApiSession(Session):
         fn = getattr(super(ApiSession, self), api_name)
         api_hdrs = self._get_api_headers(tenant, tenant_uuid, timeout, headers,
                                          api_version)
-        print api_hdrs
-        print self.cookies
         connection_error = False
         try:
             if (data is not None) and (type(data) == dict):
@@ -409,7 +408,6 @@ class ApiSession(Session):
             else:
                 resp = fn(fullpath, data=data, headers=api_hdrs,
                           timeout=timeout, **kwargs)
-            print resp.text
         except (ConnectionError, SSLError) as e:
             logger.warning('Connection error retrying %s', e)
             if not self.retry_conxn_errors:
@@ -423,7 +421,6 @@ class ApiSession(Session):
                          '%s data: %s rsp: %s', fullpath, api_name.upper(),
                          api_hdrs, kwargs, data,
                          (resp.text if self.data_log else 'None'))
-
         if connection_error or resp.status_code in (401, 419):
             if connection_error:
                 try:
@@ -502,7 +499,8 @@ class ApiSession(Session):
         if not params:
             params = {}
         params['name'] = name
-        resp = self.get(path, tenant, tenant_uuid, timeout=timeout,
+        resp = self.get(path, tenant=tenant, tenant_uuid=tenant_uuid,
+                        timeout=timeout,
                         params=params, api_version=api_version, **kwargs)
         if resp.status_code in (401, 419):
             ApiSession.reset_session(self)
