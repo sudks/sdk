@@ -158,7 +158,7 @@ class Test(unittest.TestCase):
         if login_info["password"] == new_password:
             new_password = "avi123"
         user_obj["password"] = new_password
-        api.put("user/" + user_obj["uuid"], data=json.dumps(user_obj))
+        api.put("user/%s" % user_obj["uuid"], data=json.dumps(user_obj))
         user_obj["password"] = old_password
         api.put_by_name("user", user_obj["name"], data=json.dumps(user_obj))
         resp = api2.get("pool")
