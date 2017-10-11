@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 global sessionDict
 sessionDict = {}
 
+
 def avi_timedelta(td):
     '''
     This is a wrapper class to workaround python 2.6 builtin datetime.timedelta
@@ -186,6 +187,9 @@ class ApiSession(Session):
                  port=None, timeout=60, api_version=None,
                  retry_conxn_errors=True, data_log=False, avi_credentials=None):
         """
+         ApiSession takes ownership and may update the information inside
+        it.
+
         initialize new session object with authenticated token from login api.
         It also keeps a cache of user sessions that are cleaned up if inactive
         for more than 20 mins.
@@ -243,6 +247,73 @@ class ApiSession(Session):
         self.pid = os.getpid()
         ApiSession._clean_inactive_sessions()
         return
+
+    @property
+    def controller_ip(self):
+        return self.avi_credentials.controller
+
+    @controller_ip.setter
+    def controller_ip(self, controller_ip):
+        self.avi_credentials.controller = controller_ip
+
+    @property
+    def username(self):
+        return self.avi_credentials.username
+
+    @username.setter
+    def username(self, username):
+        self.avi_credentials.username = username
+
+    @property
+    def password(self):
+        return self.avi_credentials.password
+
+    @password.setter
+    def password(self, password):
+        self.avi_credentials.password = password
+
+    @property
+    def keystone_token(self):
+        self.avi_credentials.token
+
+    @keystone_token.setter
+    def keystone_token(self, token):
+        self.avi_credentials.token = token
+
+    @property
+    def tenant_uuid(self):
+        self.avi_credentials.tenant_uuid
+
+    @tenant_uuid.setter
+    def tenant_uuid(self, tenant_uuid):
+        self.avi_credentials.tenant_uuid = tenant_uuid
+
+    @property
+    def tenant(self):
+        return self.avi_credentials.tenant
+
+    @tenant.setter
+    def tenant(self, tenant):
+        if tenant:
+            self.avi_credentials.tenant = tenant
+        else:
+            self.avi_credentials.tenant = 'admin'
+
+    @property
+    def port(self):
+        self.avi_credentials.port
+
+    @port.setter
+    def port(self, port):
+        self.avi_credentials.port = port
+
+    @property
+    def api_version(self):
+        return self.avi_credentials.api_version
+
+    @api_version.setter
+    def api_version(self, api_version):
+        self.avi_credentials.api_version = api_version
 
     @staticmethod
     def get_session(
