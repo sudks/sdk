@@ -81,6 +81,8 @@ class LbvsConverter(object):
         lb_vs_conf = ns_config.get('add lb vserver', {})
         bind_lb_vs_config = ns_config.get('bind lb vserver', {})
         cs_vs_conf = ns_config.get('add cs vserver', {})
+        ns_service = ns_config.get('add service', {})
+        ns_sg = ns_config.get('add serviceGroup', {})
         avi_config['VirtualService'] = []
         avi_config['Lbvs'] = []
         tmp_avi_config['VirtualService'] = []
@@ -111,6 +113,16 @@ class LbvsConverter(object):
                 if type not in supported_types:
                     skipped_status = 'Skipped:Unsupported type %s of LB VS: ' \
                                      '%s' % (type, key)
+                    LOG.warning(skipped_status)
+                    ns_util.add_status_row(
+                        lb_vs['line_no'], cmd, key, full_cmd, STATUS_SKIPPED,
+                        skipped_status)
+                    continue
+                if type != 'SSL' and lb_vs.get('persistenceType') == \
+                  'SSLSESSION':
+                    skipped_status = "Skipped:Secure persistence is applicable"\
+                                     " only if SSL is enabled for Virtual " \
+                                     "Service %s" % key
                     LOG.warning(skipped_status)
                     ns_util.add_status_row(
                         lb_vs['line_no'], cmd, key, full_cmd, STATUS_SKIPPED,
@@ -194,9 +206,11 @@ class LbvsConverter(object):
 
                 if bind_conf_list:
                     # Convert netscalar policy to AVI http policy set
+                    # Sending enable_ssl to policy in order to have protocol
+                    # in case it is not provided thru redirect action url
                     policy = policy_converter.convert(
                         bind_conf_list, ns_config, avi_config, [],
-                        redirect_pools, 'bind lb vserver', True)
+                        redirect_pools, 'bind lb vserver', True, enable_ssl)
                 # TODO move duplicate code for adding policy to vs in ns_util
                 # Convert netscalar policy to AVI http policy set
                 if policy:
@@ -239,13 +253,33 @@ class LbvsConverter(object):
                                                    OBJECT_TYPE_APPLICATION_PROFILE,
                                                    self.tenant_name)
                         vs_obj['application_profile_ref'] = http_prof_ref
+                        addition_attr = {}
+                        if bind_conf_list:
+                            for bindlist in bind_conf_list:
+                                if bindlist.get('attrs') and len(bindlist[
+                                  'attrs']) == 2:
+                                    ser_conf = ns_service.get(bindlist[
+                                                                'attrs'][1])
+                                    ser_cmd = 'add service'
+                                    if not ser_conf:
+                                        ser_conf = ns_sg.get(bindlist[
+                                                                'attrs'][1])
+                                        ser_cmd = 'add serviceGroup'
+                                    command =\
+                                        ns_util.get_netscalar_full_command(
+                                            ser_cmd, ser_conf)
+                                    if 'x-forwarded-for' in command:
+                                        addition_attr['xff_enabled'] = True
+                                        addition_attr[
+                                            'ssl_everywhere_enabled'] = True
                         clttimeout = lb_vs.get('cltTimeout', None)
                         if clttimeout:
-                            ns_util.add_clttimeout_for_http_profile(
-                                http_prof, avi_config, clttimeout)
+                            addition_attr['clttimeout'] = clttimeout
                             clt_cmd = cmd + '%s cltTimeout %s' % (key,
                                                                   clttimeout)
                             LOG.info('Conversion successful : %s' % clt_cmd)
+                        ns_util.add_prop_for_http_profile(
+                            http_prof, avi_config, sysdict, addition_attr)
                     else:
                         LOG.warning("%s application profile doesn't exist for "
                                     "%s vs" %(http_prof, updated_vs_name))
@@ -478,7 +512,7 @@ class LbvsConverter(object):
                     redirect_pools.update({vs_obj['name']: redirect_url})
                     ns_util.create_http_policy_set_for_redirect_url(
                         vs_obj, redirect_url, avi_config, self.tenant_name,
-                        self.tenant_ref)
+                        self.tenant_ref, enable_ssl)
                 if redirect_url:
                     if parse_version(self.controller_version) >= parse_version(
                             '17.1'):
