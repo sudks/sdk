@@ -187,8 +187,8 @@ class ApiSession(Session):
                  port=None, timeout=60, api_version=None,
                  retry_conxn_errors=True, data_log=False, avi_credentials=None):
         """
-         ApiSession takes ownership and may update the information inside
-        it.
+         ApiSession takes ownership of avi_credentials and may update the
+         information inside it.
 
         initialize new session object with authenticated token from login api.
         It also keeps a cache of user sessions that are cleaned up if inactive
