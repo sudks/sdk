@@ -18,6 +18,7 @@ from avi.migrationtools.test.common.test_clean_reboot \
 
 config_file = pytest.config.getoption("--config")
 input_file = pytest.config.getoption("--file")
+output_file = pytest.config.getoption("--out")
 
 if input_file is None:
     input_file = 'ns.conf'
@@ -57,11 +58,12 @@ setup = dict(
     baseline_profile=None,
     redirect=False,
     ansible=True,
-    vs_level_status=True
+    vs_level_status=True,
+    output_file_path=output_file
 )
 
 
-logging.basicConfig(filename="runlog.txt", level=logging.DEBUG)
+#logging.basicConfig(filename="runlog.txt", level=logging.DEBUG)
 mylogger = logging.getLogger()
 
 
@@ -104,7 +106,7 @@ class TestNetscalerConverter:
     def cleanup(self):
         import avi.migrationtools.f5_converter.conversion_util as conv
         conv.csv_writer_dict_list = list ()
-    
+
     @pytest.mark.skip_travis
     def test_download(self, cleanup):
         """
@@ -362,6 +364,7 @@ class TestNetscalerConverter:
         """
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        option=setup.get('option'),
+                       output_file_path=setup.get ('output_file_path'),
                        controller_version=setup.get('controller_version_v17'),
                        controller_ip=setup.get('controller_ip_17_1_1'),
                        user=setup.get('controller_user_17_1_1'),
@@ -390,6 +393,7 @@ class TestNetscalerConverter:
         AutoUpload Flow
         """
         netscaler_conv(config_file_name=setup.get('config_file_name'),
+                       output_file_path=setup.get('output_file_path'),
                        controller_version=setup.get('controller_version_v16'),
                        option=setup.get('option'),
                        controller_ip=setup.get('controller_ip_16_4_4'),
@@ -403,6 +407,7 @@ class TestNetscalerConverter:
         Create Ansible Script based on Flag
         """
         netscaler_conv(config_file_name=setup.get('config_file_name'),
+                       output_file_path=setup.get ('output_file_path'),
                        controller_version=setup.get('controller_version_v17'),
                        ansible=setup.get('ansible'))
 

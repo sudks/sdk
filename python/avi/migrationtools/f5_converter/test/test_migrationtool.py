@@ -20,6 +20,7 @@ from avi.migrationtools.test.common.test_clean_reboot \
 config_file = pytest.config.getoption("--config")
 input_file = pytest.config.getoption("--file")
 input_file_version = pytest.config.getoption("--fileVersion")
+output_file = pytest.config.getoption("--out")
 
 input_file_v10 = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                 'bigip_v10.conf'))
@@ -82,8 +83,11 @@ setup = dict(
                                                     'passphrase.yaml')),
     f5_ansible_object=os.path.abspath(os.path.join(
         os.path.dirname(__file__),'output', 'avi_config_create_object.yml')),
-    vs_level_status=True
+    vs_level_status=True,
+    output_file_path=output_file
 )
+
+mylogger = logging.getLogger()
 
 
 class Namespace:
@@ -466,6 +470,7 @@ class TestF5Converter:
         """
         f5_conv(bigip_config_file=setup.get('config_file_name_v10'),
                  f5_config_version=setup.get('file_version_v10'),
+                 output_file_path=setup.get ('output_file_path'),
                  controller_version=setup.get('controller_version_v16'),
                  option=setup.get('option'),
                  controller_ip=setup.get('controller_ip_16_4_4'),
@@ -495,6 +500,7 @@ class TestF5Converter:
         AutoUpload Flow
         """
         f5_conv(bigip_config_file=setup.get('config_file_name_v11'),
+                 output_file_path=setup.get ('output_file_path'),
                  f5_config_version=setup.get('file_version_v11'),
                  controller_version=setup.get('controller_version_v17'),
                  option=setup.get('option'),
@@ -525,6 +531,7 @@ class TestF5Converter:
         AutoUpload Flow
         """
         f5_conv(bigip_config_file=setup.get('config_file_name_v11'),
+                 output_file_path=setup.get ('output_file_path'),
                  f5_config_version=setup.get('file_version_v11'),
                  controller_version=setup.get('controller_version_v16'),
                  option=setup.get('option'),
@@ -539,6 +546,7 @@ class TestF5Converter:
         Create Ansible Script based on Flag
         """
         f5_conv(bigip_config_file=setup.get('config_file_name_v11'),
+                 output_file_path=setup.get ('output_file_path'),
                  controller_version=setup.get('controller_version_v17'),
                  f5_config_version=setup.get('file_version_v11'),
                  ansible=setup.get('ansible'))
@@ -583,6 +591,7 @@ class TestF5Converter:
         Create Ansible Script based on Flag
         """
         f5_conv(bigip_config_file=setup.get('config_file_name_v10'),
+                 output_file_path=setup.get ('output_file_path'),
                  controller_version=setup.get('controller_version_v17'),
                  f5_config_version=setup.get('file_version_v10'),
                  ansible=setup.get('ansible'))
