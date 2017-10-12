@@ -364,6 +364,7 @@ class TestNetscalerConverter:
         """
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        option=setup.get('option'),
+                       ansible=setup.get ('ansible'),
                        output_file_path=setup.get ('output_file_path'),
                        controller_version=setup.get('controller_version_v17'),
                        controller_ip=setup.get('controller_ip_17_1_1'),
@@ -396,6 +397,7 @@ class TestNetscalerConverter:
                        output_file_path=setup.get('output_file_path'),
                        controller_version=setup.get('controller_version_v16'),
                        option=setup.get('option'),
+                       ansible=setup.get('ansible'),
                        controller_ip=setup.get('controller_ip_16_4_4'),
                        user=setup.get('controller_user_16_4_4'),
                        password=setup.get('controller_password_16_4_4'))

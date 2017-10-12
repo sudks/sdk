@@ -441,6 +441,7 @@ class TestF5Converter:
                  f5_config_version=setup.get('file_version_v10'),
                  controller_version=setup.get('controller_version_v17'),
                  option=setup.get('option'),
+                 ansible=setup.get ('ansible'),
                  controller_ip=setup.get('controller_ip_17_1_1'),
                  user=setup.get('controller_user_17_1_1'),
                  password=setup.get('controller_password_17_1_1'))
@@ -473,6 +474,7 @@ class TestF5Converter:
                  output_file_path=setup.get ('output_file_path'),
                  controller_version=setup.get('controller_version_v16'),
                  option=setup.get('option'),
+                 ansible=setup.get ('ansible'),
                  controller_ip=setup.get('controller_ip_16_4_4'),
                  user=setup.get('controller_user_16_4_4'),
                  password=setup.get('controller_password_16_4_4'))
@@ -504,6 +506,7 @@ class TestF5Converter:
                  f5_config_version=setup.get('file_version_v11'),
                  controller_version=setup.get('controller_version_v17'),
                  option=setup.get('option'),
+                 ansible=setup.get ('ansible'),
                  controller_ip=setup.get('controller_ip_17_1_1'),
                  user=setup.get('controller_user_17_1_1'),
                  password=setup.get('controller_password_17_1_1'))
@@ -535,6 +538,7 @@ class TestF5Converter:
                  f5_config_version=setup.get('file_version_v11'),
                  controller_version=setup.get('controller_version_v16'),
                  option=setup.get('option'),
+                 ansible=setup.get ('ansible'),
                  controller_ip=setup.get('controller_ip_16_4_4'),
                  user=setup.get('controller_user_16_4_4'),
                  password=setup.get('controller_password_16_4_4'))
