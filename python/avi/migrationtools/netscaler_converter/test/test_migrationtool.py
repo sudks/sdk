@@ -15,6 +15,8 @@ from avi.migrationtools.test.common.excel_reader \
     import percentage_success, output_sanitization
 from avi.migrationtools.test.common.test_clean_reboot \
     import verify_controller_is_up, clean_reboot
+from avi.migrationtools.test.common.test_tenant_cloud \
+    import create_tenant, create_cloud
 
 config_file = pytest.config.getoption("--config")
 input_file = pytest.config.getoption("--file")
@@ -462,6 +464,29 @@ class TestNetscalerConverter:
         """
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        controller_version=setup.get('controller_version_v17'))
+
+    @pytest.mark.skip_travis
+    def test_create_tenant_cloud_and_upload_controller_17_1_1(self, cleanup):
+        """
+        Create Tenant and Cloud name on the Controller v17.1.1,
+        Auto Upload configuration file on controller.
+        """
+        create_tenant(file_attribute['controller_ip_17_1_1'], file_attribute['controller_user_17_1_1'],
+                          file_attribute['controller_password_17_1_1'], file_attribute['tenant'])
+
+        create_cloud (file_attribute['controller_ip_17_1_1'], file_attribute['controller_user_17_1_1'],
+                      file_attribute['controller_password_17_1_1'], file_attribute['cloud_name'])
+
+        netscaler_conv (config_file_name=setup.get ('config_file_name'),
+                        option=setup.get ('option'),
+                        tenant=file_attribute['tenant'],
+                        cloud_name=file_attribute['cloud_name'],
+                        ansible=setup.get ('ansible'),
+                        output_file_path=setup.get ('output_file_path'),
+                        controller_version=setup.get ('controller_version_v17'),
+                        controller_ip=setup.get ('controller_ip_17_1_1'),
+                        user=setup.get ('controller_user_17_1_1'),
+                        password=setup.get ('controller_password_17_1_1'))
 
 
 def teardown():
