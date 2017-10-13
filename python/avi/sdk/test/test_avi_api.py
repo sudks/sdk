@@ -321,6 +321,156 @@ class Test(unittest.TestCase):
         papi.reset_session()
         papi.reset_session()
 
+    # Added test cases for getter and setter methods in avi_api
+    def test_get_controller_ip(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                       verify=False)
+        assert api1.controller_ip ==  api2.controller_ip
+
+    def test_set_controller_ip(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+        api1.controller_ip = '10.10.2.3'
+        assert api1.controller_ip == api2.controller_ip
+        api1.controller_ip = login_info['controller_ip']
+
+    def test_get_username(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+
+        assert api1.username == api2.username
+
+    def test_set_username(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+        api1.username = 'avi-networks'
+        assert api1.username == api2.username
+        api1.username = login_info.get("username", "admin")
+
+    def test_get_password(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+
+        assert api1.password == api2.password
+
+    def test_set_password(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+        api1.password = 'admin@#$'
+        assert api1.password == api2.password
+        api1.password = login_info.get("password", "avi123")
+
+    def test_get_key_token(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+        assert api1.keystone_token == api2.keystone_token
+
+    def test_set_key_token(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+        token  = api1.keystone_token
+        api1.keystone_token = "abc1werxSWASC"
+        assert api1.keystone_token == api2.keystone_token
+        api1.keystone_token = token
+
+    def test_get_tenant_uuid(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+        assert api1.tenant_uuid == api2.tenant_uuid
+
+    def test_set_tenant_uuid(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+        api1.tenant_uuid = "Xyssdd123YYY-dummy"
+        assert api1.tenant_uuid == api2.tenant_uuid
+        api1.tenant_uuid = login_info.get("tenant_uuid", None)
+
+    def test_tenant(self):
+         api1 = ApiSession(avi_credentials=api.avi_credentials,
+                           verify=False)
+
+         api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                       verify=False)
+         assert api1.tenant == api2.tenant
+
+    def test_set_tenant(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+        api1.tenant == 'vmware'
+        assert api1.tenant == api2.tenant
+        api1.tenant = login_info.get("tenant", "admin")
+
+    def test_get_port(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+
+        assert api1.port == api2.port
+
+    def test_set_port(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+        api1.port = '9993'
+        assert api1.port == api2.port
+        api1.port = login_info.get("port")
+
+    def test_get_api_version(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+
+        assert api1.api_version == api2.api_version
+
+    def test_set_api_version(self):
+        api1 = ApiSession(avi_credentials=api.avi_credentials,
+                          verify=False)
+
+        api2 = ApiSession.get_session(avi_credentials=api.avi_credentials,
+                                      verify=False)
+        api1.api_version = "17.2.2"
+        assert api1.api_version == api2.api_version
+        api1.api_version = login_info.get("api_version", gapi_version)
+
 
 if __name__ == "__main__":
     unittest.main()

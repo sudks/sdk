@@ -190,7 +190,7 @@ class ApiSession(Session):
          ApiSession takes ownership of avi_credentials and may update the
          information inside it.
 
-        initialize new session object with authenticated token from login api.
+        Initialize new session object with authenticated token from login api.
         It also keeps a cache of user sessions that are cleaned up if inactive
         for more than 20 mins.
 
