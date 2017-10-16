@@ -207,9 +207,12 @@ class MonitorConverter(object):
             avi_monitor["name"] = str(mon_name).strip().replace(" ", "_")
             avi_monitor["tenant_ref"] = self.tenant_ref
             recv_timeout = ns_monitor.get('resptimeout', '2')
-            if 'MSEC' in recv_timeout.upper():
+            if 'MSEC' in recv_timeout.upper() or 'MIN' in recv_timeout.upper():
                 match_ob = re.findall('[0-9]+', recv_timeout)
-                recv_timeout = int(math.ceil(float(match_ob[0])/1000))
+                if 'MSEC' in recv_timeout.upper():
+                    recv_timeout = int(math.ceil(float(match_ob[0])/1000))
+                else:
+                    recv_timeout = int(match_ob[0]) * 60
             avi_monitor["receive_timeout"] = recv_timeout
             avi_monitor["failed_checks"] = ns_monitor.get('failureRetries', 3)
             interval = ns_monitor.get('interval', '5')
@@ -234,9 +237,15 @@ class MonitorConverter(object):
                 send = ns_monitor.get("send", None)
                 if send:
                     send = send.replace('"', '')
+                    # Removed \\ from response.
+                    if '\\' in send:
+                        send = send.replace('\\', '"')
                 response = ns_monitor.get('recv', None)
                 if response:
                     response = response.replace('"', '')
+                    # Removed \\ from response.
+                    if '\\' in response:
+                        response = response.replace('\\', '"')
                 avi_monitor["tcp_monitor"] = {
                     "tcp_request": send,
                     "tcp_response": response,
@@ -247,6 +256,9 @@ class MonitorConverter(object):
                 send = ns_monitor.get('httpRequest', None)
                 if send:
                     send = send.replace('"', '')
+                    # Removed \\ from send.
+                    if '\\' in send:
+                        send = send.replace('\\', '"')
                 resp_code = ns_monitor.get('respCode', None)
                 if resp_code:
                     resp_code = ns_util.get_avi_resp_code(resp_code)
@@ -258,11 +270,23 @@ class MonitorConverter(object):
                         "http_response_code": resp_code,
                         "ssl_attributes": ssl_attributes
                     }
+                if parse_version(self.controller_version) >= parse_version(
+                        '17.1.6'):
+                    custom_header = ns_monitor.get('customHeaders')
+                    if custom_header:
+                        avi_monitor['https_monitor'].update({
+                            'exact_http_request': True,
+                            'http_request': (send + ' HTTP/1.0' + "\r\n" +
+                                            custom_header + "\r\n").replace('"',
+                                            '').replace('\\r\\n', '\r\n')})
             elif mon_type == 'HTTP':
                 avi_monitor["type"] = "HEALTH_MONITOR_HTTP"
                 send = ns_monitor.get('httpRequest', None)
                 if send:
                     send = send.replace('"', '')
+                    # Removed \\ from send.
+                    if '\\' in send:
+                        send = send.replace('\\', '"')
                 resp_code = ns_monitor.get('respCode', None)
                 if resp_code:
                     resp_code = ns_util.get_avi_resp_code(resp_code)
@@ -270,14 +294,29 @@ class MonitorConverter(object):
                     "http_request": send,
                     "http_response_code": resp_code
                 }
+                if parse_version(self.controller_version) >= parse_version(
+                        '17.1.6'):
+                    custom_header = ns_monitor.get('customHeaders')
+                    if custom_header:
+                        avi_monitor['http_monitor'].update({
+                            'exact_http_request': True,
+                            'http_request': (send + ' HTTP/1.0' + "\r\n" +
+                                            custom_header + "\r\n").replace('"',
+                                            '').replace('\\r\\n', '\r\n')})
             elif mon_type == 'HTTP-ECV':
                 avi_monitor["type"] = "HEALTH_MONITOR_HTTP"
                 send = ns_monitor.get("send", None)
                 if send:
                     send = send.replace('"', '')
+                    # Removed \\ from send.
+                    if '\\' in send:
+                        send = send.replace('\\', '"')
                 response = ns_monitor.get('recv', None)
                 if response:
                     response = response.replace('"', '')
+                    # Removed \\ from response.
+                    if '\\' in response:
+                        response = response.replace('\\', '"')
                 avi_monitor["http_monitor"] = {
                     "http_request": send,
                     "http_response_code": ["HTTP_ANY"],

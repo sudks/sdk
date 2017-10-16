@@ -141,7 +141,7 @@ class AviCredentials(object):
         :param module: ansible module
         :return:
         """
-        if module.params['avi_credentials']:
+        if module.params.get('avi_credentials'):
             for k, v in list(module.params['avi_credentials'].items()):
                 if hasattr(self, k):
                     setattr(self, k, v)
@@ -184,7 +184,7 @@ class ApiSession(Session):
                  timeout=60, api_version=None,
                  retry_conxn_errors=True, data_log=False):
         """
-        initialize new session object with authenticated token from login api.
+        Initialize new session object with authenticated token from login api.
         It also keeps a cache of user sessions that are cleaned up if inactive
         for more than 20 mins.
 
@@ -202,7 +202,7 @@ class ApiSession(Session):
         self.controller_ip = controller_ip
         self.username = username
         self.password = password
-        self.keystone_token = token
+        self.token = token
         self.tenant_uuid = tenant_uuid
         self.tenant = tenant if tenant else "admin"
         self.headers = {}
@@ -271,7 +271,7 @@ class ApiSession(Session):
             user_session = ApiSession.sessionDict[key]["api"]
             tenant = tenant if tenant else 'admin'
             if (user_session.password != password or
-                    user_session.keystone_token != token or
+                    user_session.token != token or
                     user_session.tenant != tenant or
                     user_session.tenant_uuid != tenant_uuid or
                     user_session.api_version != api_version):
@@ -312,10 +312,10 @@ class ApiSession(Session):
         session cookies and sets header options like tenant.
         """
         body = {"username": self.username}
-        if not self.keystone_token:
+        if not self.token:
             body["password"] = self.password
         else:
-            body["token"] = self.keystone_token
+            body["token"] = self.token
 
         logger.debug('authenticating user %s ', self.username)
         rsp = super(ApiSession, self).post(self.prefix+"/login", body,

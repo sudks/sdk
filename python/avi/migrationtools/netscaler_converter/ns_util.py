@@ -177,7 +177,7 @@ class NsUtil(MigrationUtil):
         :return: Avi LB algorithm enum value
         """
 
-        avi_algorithm = None
+        avi_algorithm = 'LB_ALGORITHM_LEAST_CONNECTIONS'
         if ns_algorithm == 'LEASTCONNECTIONS':
             avi_algorithm = 'LB_ALGORITHM_LEAST_CONNECTIONS'
         elif ns_algorithm == 'ROUNDROBIN':
@@ -198,20 +198,26 @@ class NsUtil(MigrationUtil):
         """
 
         avi_resp_codes = []
-        codes = respCode.split(' ')
+        codes = []
+        for res_code in respCode.split(' '):
+            if '-' in res_code:
+                codes.extend(res_code.split('-'))
+            else:
+                codes.append(res_code)
         for code in codes:
-            # Converted to int.
-            code = int(code)
-            if code < 200:
-                avi_resp_codes.append("HTTP_1XX")
-            elif code < 300:
-                avi_resp_codes.append("HTTP_2XX")
-            elif code < 400:
-                avi_resp_codes.append("HTTP_3XX")
-            elif code < 500:
-                avi_resp_codes.append("HTTP_4XX")
-            elif code < 600:
-                avi_resp_codes.append("HTTP_5XX")
+            if code and code.strip().isdigit():
+                # Converted to int.
+                code = int(code.strip())
+                if code < 200:
+                    avi_resp_codes.append("HTTP_1XX")
+                elif code < 300:
+                    avi_resp_codes.append("HTTP_2XX")
+                elif code < 400:
+                    avi_resp_codes.append("HTTP_3XX")
+                elif code < 500:
+                    avi_resp_codes.append("HTTP_4XX")
+                elif code < 600:
+                    avi_resp_codes.append("HTTP_5XX")
         # Get the unique dict from list.
         return list(set(avi_resp_codes))
 
@@ -444,21 +450,66 @@ class NsUtil(MigrationUtil):
                 }
                 vs['services'].append(service)
 
-    def add_clttimeout_for_http_profile(self, profile_name, avi_config,
-                                        cltimeout):
+    def add_prop_for_http_profile(self, profile_name, avi_config, sysdict,
+                                  prop_dict):
         """
-        :param object_type:Type of object need to check for name
-        :param name: name of object
+        This method adds the additional attribute to application profile
+        :param name: name of application profile
         :param avi_config: avi config dict
-        :return: Bool Value
+        :param sysdict: system/baseline config dict
+        :param prop_dict: property dict
+        :return:
         """
 
-        profile = [p for p in avi_config['ApplicationProfile']
-                   if p['name'] == profile_name]
+        profile = [p for p in (avi_config['ApplicationProfile'] + sysdict[
+            'ApplicationProfile']) if p['name'] == profile_name]
         if profile:
-            profile[0]['client_header_timeout'] = int(cltimeout)
-            profile[0]['client_body_timeout'] = int(cltimeout)
-
+            if prop_dict.get('clttimeout'):
+                profile[0]['client_header_timeout'] = int(prop_dict[
+                                                              'clttimeout'])
+                profile[0]['client_body_timeout'] = int(prop_dict['clttimeout'])
+            if prop_dict.get('xff_enabled'):
+                if profile[0].get('http_profile'):
+                    profile[0]['http_profile'].update(
+                        {
+                            'xff_enabled': True,
+                            'xff_alternate_name': 'X-Forwarded-For'
+                        }
+                    )
+                else:
+                    profile[0].update({'http_profile':
+                        {
+                            'xff_enabled': True,
+                            'xff_alternate_name': 'X-Forwarded-For'
+                        }
+                    })
+            if prop_dict.get('ssl_everywhere_enabled'):
+                if profile[0].get('http_profile'):
+                    profile[0]['http_profile'].update(
+                        {
+                            'ssl_everywhere_enabled': True,
+                            'x_forwarded_proto_enabled': True,
+                            'hsts_enabled': True,
+                            'http_to_https': True,
+                            'httponly_enabled': True,
+                            'hsts_max_age': 365,
+                            'server_side_redirect_to_https': True,
+                            'secure_cookie_enabled': True
+                        }
+                    )
+                else:
+                    profile[0].update({'http_profile':
+                        {
+                            'ssl_everywhere_enabled': True,
+                            'x_forwarded_proto_enabled': True,
+                            'hsts_enabled': True,
+                            'http_to_https': True,
+                            'httponly_enabled': True,
+                            'hsts_max_age': 365,
+                            'server_side_redirect_to_https': True,
+                            'secure_cookie_enabled': True
+                        }
+                    })
 
     def object_exist(self, object_type, name, avi_config):
         data = avi_config[object_type]
@@ -511,8 +562,7 @@ class NsUtil(MigrationUtil):
             vs['vsvip_ref'] = updated_vsvip_ref
 
     def clone_http_policy_set(self, policy, prefix, avi_config, tenant_name,
-                              cloud_name,
-                              userprefix=None):
+                              cloud_name, used_poolgrp_ref, userprefix=None):
         """
         This function clone pool reused in context switching rule
         :param policy: name of policy
@@ -531,9 +581,11 @@ class NsUtil(MigrationUtil):
                     rule['switching_action']['pool_group_ref'].split('&')[
                         1].split(
                         '=')[1]
-                pool_group_ref = self.clone_pool_group(
-                    pool_group_ref, policy_name, avi_config, tenant_name,
-                    cloud_name, userprefix=userprefix)
+                if pool_group_ref in used_poolgrp_ref:
+                    LOG.debug('Cloned the pool group for policy %s', policy_name)
+                    pool_group_ref = self.clone_pool_group(
+                        pool_group_ref, policy_name, avi_config, tenant_name,
+                        cloud_name, userprefix=userprefix)
                 if pool_group_ref:
                     updated_pool_group_ref = self.get_object_ref(
                         pool_group_ref, OBJECT_TYPE_POOL_GROUP, tenant_name,
@@ -694,13 +746,15 @@ class NsUtil(MigrationUtil):
             timeout = vs.get('timeout', 2)
             profile = {
                 "http_cookie_persistence_profile": {
-                    "always_send_cookie": False,
-                    "timeout": timeout
+                    "always_send_cookie": False
                 },
                 "persistence_type": "PERSISTENCE_TYPE_HTTP_COOKIE",
                 "server_hm_down_recovery": "HM_DOWN_PICK_NEW_SERVER",
                 "name": name,
             }
+            #  Added time if greater than zero
+            if int(timeout) > 0:
+                profile['http_cookie_persistence_profile']["timeout"] = timeout
         elif persistenceType == 'SOURCEIP':
             # Set timeout equal to 2 if not provided.
             timeout = vs.get('timeout', 120)
@@ -739,7 +793,7 @@ class NsUtil(MigrationUtil):
             row[0]['Status'] = STATUS_INDIRECT
 
     def create_http_policy_set_for_redirect_url(self, vs_obj, redirect_uri,
-                                                avi_config, tenant_name, tenant_ref):
+                            avi_config, tenant_name, tenant_ref, enable_ssl):
         """
         This function defines that create http policy for redirect url
         :param vs_obj: object of VS
@@ -750,23 +804,7 @@ class NsUtil(MigrationUtil):
         :return: None
         """
         redirect_uri = str(redirect_uri).replace('"', '')
-        parsed = self.parse_url(redirect_uri)
-        protocol = str(parsed.scheme).upper()
-        if not protocol:
-            protocol = 'HTTP'
-
-        action = {
-            'protocol': protocol,
-            'host': {
-                'type': 'URI_PARAM_TYPE_TOKENIZED',
-                'tokens': [{
-                    'type': 'URI_TOKEN_TYPE_HOST',
-                    'str_value': redirect_uri,
-                    'start_index': '0',
-                    'end_index': '65535'
-                }]
-            }
-        }
+        action = self.build_redirect_action_dict(redirect_uri, enable_ssl)
         policy_obj = {
             'name': vs_obj['name'] + '-redirect-policy',
             'tenant_ref': tenant_ref,
@@ -797,7 +835,8 @@ class NsUtil(MigrationUtil):
             'index': 11,
             'http_policy_set_ref': updated_http_policy_ref
         }
-        vs_obj['http_policies'] = []
+        if not vs_obj.get('http_policies'):
+            vs_obj['http_policies'] = []
         vs_obj['http_policies'].append(http_policies)
         avi_config['HTTPPolicySet'].append(policy_obj)
 
@@ -1547,4 +1586,67 @@ class NsUtil(MigrationUtil):
                               in mergelist]
         avi_config['Pool'] = [pools for pools in avi_config['Pool'] if pools[
                                 'name'] not in mergelist]
+
+    def add_policy(self, policy, updated_vs_name, avi_config, tmp_policy_ref,
+                   vs_obj, tenant_name, cloud_name, prefix, used_poolgrp_ref):
+        if policy['name'] in tmp_policy_ref:
+            # clone the http policy set if it is referenced to other VS
+            policy = self.clone_http_policy_set(policy, updated_vs_name,
+                         avi_config, tenant_name, cloud_name, used_poolgrp_ref,
+                         userprefix=prefix)
+        updated_http_policy_ref = self.get_object_ref(policy['name'],
+                                   OBJECT_TYPE_HTTP_POLICY_SET, tenant_name)
+
+        tmp_policy_ref.append(policy['name'])
+        http_policies = {
+            'index': 11,
+            'http_policy_set_ref': updated_http_policy_ref
+        }
+        if not vs_obj.get('http_policies'):
+            vs_obj['http_policies'] = []
+        else:
+            ind = max([policies['index'] for policies in vs_obj[
+                       'http_policies']])
+            http_policies['index'] = ind + 1
+        vs_obj['http_policies'].append(http_policies)
+        avi_config['HTTPPolicySet'].append(policy)
+
+    def build_redirect_action_dict(self, redirect_url, enable_ssl):
+        redirect_url = self.parse_url(redirect_url)
+        protocol = str(redirect_url.scheme).upper()
+        hostname = str(redirect_url.hostname)
+        pathstring = str(redirect_url.path)
+        querystring = str(redirect_url.query)
+        full_path = '%s?%s' % (pathstring, querystring) if pathstring and \
+                                querystring else pathstring
+        protocol = enable_ssl and 'HTTPS' or 'HTTP' if not protocol else \
+            protocol
+        action = {
+            'protocol': protocol
+        }
+        if hostname:
+            action.update({'host':
+                {
+                    'type': 'URI_PARAM_TYPE_TOKENIZED',
+                    'tokens': [{
+                        'type': 'URI_TOKEN_TYPE_STRING',
+                        'str_value': hostname,
+                        'start_index': '0',
+                        'end_index': '65535'
+                    }]
+                }
+            })
+        if full_path:
+            action.update({'path':
+                {
+                    'type': 'URI_PARAM_TYPE_TOKENIZED',
+                    'tokens': [{
+                        'type': 'URI_TOKEN_TYPE_STRING',
+                        'str_value': full_path,
+                        'start_index': '0',
+                        'end_index': '65535'
+                    }]
+                }
+            })
+        return action
 

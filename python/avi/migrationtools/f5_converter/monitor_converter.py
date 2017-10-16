@@ -269,11 +269,12 @@ class MonitorConfigConv(object):
                     conv_const.DEFAULT_INTERVAL
         time_until_up = int(f5_monitor.get(self.tup,
                                            conv_const.DEFAULT_TIME_UNTIL_UP))
-        # Fixed Successful interval and failed checks
-        failed_checks = int(timeout/interval)
+        # Fixed Successful interval and failed checks, also averting
+        # DivisionByZero error
+        failed_checks = int(timeout/interval) if interval else 0
         successful_checks = conv_const.DEFAULT_FAILED_CHECKS
         if time_until_up > 0:
-            successful_checks = int(time_until_up/interval)
+            successful_checks = int(time_until_up/interval) if interval else 0
             successful_checks = 1 \
                 if successful_checks == 0 else successful_checks
 
@@ -287,7 +288,7 @@ class MonitorConfigConv(object):
             tenant = tenant_ref
         monitor_dict['tenant_ref'] = conv_utils.get_object_ref(tenant, 'tenant')
         monitor_dict["name"] = name
-        monitor_dict["receive_timeout"] = interval-1
+        monitor_dict["receive_timeout"] = interval-1 if interval else 0
         monitor_dict["failed_checks"] = failed_checks
         monitor_dict["send_interval"] = interval
         monitor_dict["successful_checks"] = successful_checks
@@ -402,7 +403,9 @@ class MonitorConfigConvV11(MonitorConfigConv):
         f5_monitor = monitor_config[key]
         monitor_type, monitor_name = key.split(" ")
         parent_name = f5_monitor.get("defaults-from", None)
-        parent_name = None if parent_name == 'none' else parent_name
+        parent_name = None if parent_name == 'none' else \
+                        conv_utils.get_tenant_ref(parent_name)[1] if \
+                        parent_name is not None else parent_name
         if parent_name and monitor_name != parent_name:
             key = monitor_type+" "+parent_name
             parent_monitor = monitor_config.get(key, None)
@@ -640,10 +643,12 @@ class MonitorConfigConvV11(MonitorConfigConv):
         http_response = ''
         if "reverse" in f5_monitor and f5_monitor["reverse"] != 'disabled':
             maintenance_response = f5_monitor.get("recv", '')
-            http_response = f5_monitor.get('recv disable', '')
+            http_response = f5_monitor.get('recv disable', f5_monitor.get(
+                                'recv-disable', ''))
         else:
             http_response = f5_monitor.get("recv", '')
-            maintenance_response = f5_monitor.get('recv disable', '')
+            maintenance_response = f5_monitor.get('recv disable',
+                                            f5_monitor.get('recv-disable', ''))
         if maintenance_response:
             maintenance_response = \
                 maintenance_response.replace('\"', '').strip()
@@ -651,7 +656,7 @@ class MonitorConfigConvV11(MonitorConfigConv):
             http_response = \
                 http_response.replace('\"', '').strip()
         if maintenance_response == 'none':
-            maintenance_response = ''
+            maintenance_response = None
         if http_response == 'none':
             http_response = ''
         return maintenance_response, http_response
@@ -694,7 +699,9 @@ class MonitorConfigConvV10(MonitorConfigConv):
     def get_defaults(self, monitor_config, key):
         f5_monitor = monitor_config[key]
         parent_name = f5_monitor.get("defaults from", None)
-        parent_name = None if parent_name == 'none' else parent_name
+        parent_name = None if parent_name == 'none' else \
+                        conv_utils.get_tenant_ref(parent_name)[1] if \
+                        parent_name is not None else parent_name
         if parent_name and key != parent_name:
             parent_monitor = monitor_config.get(parent_name, None)
             if parent_monitor:
@@ -927,7 +934,7 @@ class MonitorConfigConvV10(MonitorConfigConv):
             http_response = \
                 http_response.replace('\"', '').strip()
         if maintenance_response == 'none':
-            maintenance_response = ''
+            maintenance_response = None
         if http_response == 'none':
             http_response = ''
         return maintenance_response, http_response
