@@ -1,9 +1,12 @@
 import re
 import avi.migrationtools.netscaler_converter.ns_constants as ns_constants
 
-from avi.migrationtools.netscaler_converter import ns_util
+from avi.migrationtools.netscaler_converter.ns_util import NsUtil
 from avi.migrationtools.netscaler_converter.gslb_monitor_converter \
     import GslbHealthMonitorConverter
+
+# Creating object for util library.
+ns_util = NsUtil()
 
 class GslbServiceConverter(object):
     def __init__(self):
@@ -27,7 +30,10 @@ class GslbServiceConverter(object):
         else:
             server = server_config.get(ns_service['attrs'][1], {})
             member_ip = server['attrs'][1]
-            port = server['attrs'][3]
+            if len(server['attrs']) >= 3:
+                port = server['attrs'][3]
+            else:
+                port = 80
         state = (ns_service.get('state', 'ENABLED') == 'ENABLED')
 
 
@@ -84,6 +90,8 @@ class GslbServiceConverter(object):
         group_dict = dict()
         gslb_health_monitor_refs = []
         for binding in vs_bindings:
+            if isinstance(binding, str):
+                continue
             cmd = ns_util.get_netscalar_full_command(
                 'bind gslb vserver', binding)
             if 'serviceName' in binding:
@@ -126,6 +134,8 @@ class GslbServiceConverter(object):
         groups = list()
         for key in group_dict:
             groups.append(group_dict[key])
-        ttl = max(ttls, key=ttls.count)
+        ttl = 0
+        if ttls:
+            ttl = max(ttls, key=ttls.count)
 
         return groups, ttl, domains, gslb_health_monitor_refs

@@ -27,6 +27,7 @@ class NetscalerGSLBConverter(AviConverter):
         self.ns_ssh_password = args.ns_ssh_password
         self.ns_key_file = args.ns_key_file
         self.version = args.version
+        self.vs_level_status = args.vs_level_status
 
     def convert(self):
         if not os.path.exists(self.output_file_path):
@@ -54,6 +55,7 @@ class NetscalerGSLBConverter(AviConverter):
             source_file = output_dir + os.path.sep + "ns.conf"
         else:
             source_file = self.ns_config_file
+        report_name = os.path.splitext(os.path.basename(source_file))[0]
         gslb_ns_config = dict()
         ns_config, skipped_cmds = ns_parser.get_ns_conf_dict(source_file)
         gslb_ns_config['add gslb service'] = ns_config.get('add gslb service')
@@ -61,9 +63,14 @@ class NetscalerGSLBConverter(AviConverter):
         gslb_ns_config['bind gslb vserver'] = ns_config.get('bind gslb vserver')
         gslb_ns_config['add server'] = ns_config.get('add server')
         print gslb_ns_config
-        gslb_config_converter.convert(
-            gslb_ns_config, self.controller_ip, self.user, self.password,
-            self.tenant, self.vs_state, self.output_file_path, self.version)
+        # getting meta tag from superclass
+        meta = self.meta(self.tenant, self.controller_version)
+        avi_gslb_config = gslb_config_converter.convert(
+            meta, gslb_ns_config, self.controller_ip, self.user, self.password,
+            self.tenant, self.vs_state, self.output_file_path, self.version,
+            report_name, self.vs_level_status)
+        self.write_output(
+            avi_gslb_config, output_dir, '%s-Output.json' % report_name)
 
 
 if __name__ == "__main__":
@@ -115,6 +122,11 @@ if __name__ == "__main__":
     parser.add_argument('--version',
                         help='Print product version and exit',
                         action='store_true')
+
+    parser.add_argument('--vs_level_status', action='store_true',
+                        help='Add columns of vs reference and overall skipped '
+                             'settings in status excel sheet')
+
     args = parser.parse_args()
 
     gslb_converter = NetscalerGSLBConverter(args)

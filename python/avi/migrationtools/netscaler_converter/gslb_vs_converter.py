@@ -1,7 +1,7 @@
 import logging
 import avi.migrationtools.netscaler_converter.ns_constants as ns_constants
 
-from avi.migrationtools.netscaler_converter import ns_util
+from avi.migrationtools.netscaler_converter.ns_util import NsUtil
 from avi.migrationtools.netscaler_converter.gslb_service_converter \
     import GslbServiceConverter
 from avi.migrationtools.netscaler_converter.ns_constants import STATUS_SKIPPED
@@ -9,7 +9,8 @@ from avi.migrationtools.netscaler_converter.gslb_monitor_converter \
     import GslbHealthMonitorConverter
 
 LOG = logging.getLogger(__name__)
-
+# Creating object for util library.
+ns_util = NsUtil()
 
 class GslbVsConverter(object):
 
