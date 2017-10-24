@@ -655,28 +655,28 @@ class TestF5Converter:
                  f5_config_version=setup.get('file_version_v10'))
 
     @pytest.mark.skip_travis
-    def test_create_tenant_cloud_and_upload_controller_v11_17_1_1(self, cleanup):
+    def test_create_tenant_cloud_and_upload_controller_v11_16_4_4(self, cleanup):
         """
-        Create Tenant and Cloud name on the Controller v17.1.1,
+        Create Tenant and Cloud name on the Controller v16.4.4,
         Auto Upload configuration file on controller.
         """
-        create_tenant (file_attribute['controller_ip_17_1_1'], file_attribute['controller_user_17_1_1'],
-                       file_attribute['controller_password_17_1_1'], file_attribute['tenant'])
+        create_tenant (file_attribute['controller_ip_16_4_4'], file_attribute['controller_user_16_4_4'],
+                       file_attribute['controller_password_16_4_4'], file_attribute['tenant'])
 
-        create_cloud (file_attribute['controller_ip_17_1_1'], file_attribute['controller_user_17_1_1'],
-                      file_attribute['controller_password_17_1_1'], file_attribute['cloud_name'])
+        create_cloud (file_attribute['controller_ip_16_4_4'], file_attribute['controller_user_16_4_4'],
+                      file_attribute['controller_password_16_4_4'], file_attribute['cloud_name'])
 
         f5_conv (bigip_config_file=setup.get ('config_file_name_v11'),
-                 output_file_path=setup.get ('output_file_path'),
                  f5_config_version=setup.get ('file_version_v11'),
-                 controller_version=setup.get ('controller_version_v17'),
+                 output_file_path=setup.get ('output_file_path'),
+                 controller_version=setup.get ('controller_version_v16'),
                  option=setup.get ('option'),
                  tenant=file_attribute['tenant'],
                  cloud_name=file_attribute['cloud_name'],
                  ansible=setup.get ('ansible'),
-                 controller_ip=setup.get ('controller_ip_17_1_1'),
-                 user=setup.get ('controller_user_17_1_1'),
-                 password=setup.get ('controller_password_17_1_1'))
+                 controller_ip=setup.get ('controller_ip_16_4_4'),
+                 user=setup.get ('controller_user_16_4_4'),
+                 password=setup.get ('controller_password_16_4_4'))
 
 
     @pytest.mark.skip_travis
@@ -685,11 +685,11 @@ class TestF5Converter:
         Create Tenant and Cloud name on the Controller v16.4.4,
         Auto Upload configuration file on controller.
         """
-        create_tenant (file_attribute['controller_ip_17_1_1'], file_attribute['controller_user_17_1_1'],
-                       file_attribute['controller_password_17_1_1'], file_attribute['tenant'])
+        create_tenant (file_attribute['controller_ip_16_4_4'], file_attribute['controller_user_16_4_4'],
+                       file_attribute['controller_password_16_4_4'], file_attribute['tenant'])
 
-        create_cloud (file_attribute['controller_ip_17_1_1'], file_attribute['controller_user_17_1_1'],
-                      file_attribute['controller_password_17_1_1'], file_attribute['cloud_name'])
+        create_cloud (file_attribute['controller_ip_16_4_4'], file_attribute['controller_user_16_4_4'],
+                      file_attribute['controller_password_16_4_4'], file_attribute['cloud_name'])
 
         f5_conv (bigip_config_file=setup.get ('config_file_name_v10'),
                  f5_config_version=setup.get ('file_version_v10'),
