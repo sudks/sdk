@@ -7,11 +7,11 @@ common_task_args = {'controller': "{{ controller }}",
 
 
 ansible_dict = dict({
-        'connection': 'local',
-        'hosts': 'localhost',
-        'roles': ['avinetworks.avisdk'],
-        'vars': deepcopy(common_task_args),
-        'tasks': []})
+    'connection': 'local',
+    'hosts': 'localhost',
+    'roles': ['avinetworks.avisdk'],
+    'vars': deepcopy(common_task_args),
+    'tasks': []})
 
 ansible_dict['vars']['state'] = 'present'
 
@@ -70,6 +70,7 @@ WHEN = 'when'
 REGISTER = 'register'
 VALUE = 'result'
 RESULT = "result.success!=0"
+RESULT_SUCCESS = 'result.success==0'
 VS_NAME = 'vs_name'
 TENANT = 'tenant'
 ANSIBLE_STR = '# Auto-generated from Avi Configuration\n'

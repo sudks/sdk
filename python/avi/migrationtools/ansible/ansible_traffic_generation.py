@@ -2,11 +2,11 @@ import requests
 import json
 from copy import deepcopy
 from avi.migrationtools.ansible.ansible_constant import \
-    (ENABLE_F5, DISABLE_F5, ENABLE_AVI, DISABLE_AVI, VIRTUALSERVICE,ansible_dict,
+    (ENABLE_F5, DISABLE_F5, ENABLE_AVI, DISABLE_AVI, VIRTUALSERVICE, ansible_dict,
      NAME, TAGS, AVI_VIRTUALSERVICE, SERVER, VALIDATE_CERT, USER, REQEST_TYPE,
      IP_ADDRESS, TASKS, STATE, DISABLE, BIGIP_VS_SERVER, DELEGETE_TO,
      LOCAL_HOST, ENABLE, WHEN, RESULT, DISABLE_NETSCALER, ENABLE_NETSCALER,
-     NS_USERNAME, NS_PASSWORD, NS_HOST, NETSCALER_VS_STATUS)
+     NS_USERNAME, NS_PASSWORD, NS_HOST, NETSCALER_VS_STATUS, RESULT_SUCCESS)
 
 
 class TrafficGen(object):
@@ -37,7 +37,7 @@ class TrafficGen(object):
     def create_ansible_disable(self, vs_dict, ansible_dict):
         pass
 
-    def create_avi_ansible_enable(self, vs_dict, ansible_dict):
+    def create_avi_ansible_enable(self, vs_dict, ansible_dict, test_vip=None):
         """
         This function is used to enable the avi virtual service.
         :param vs_dict: avi virtualservice related parameters.
@@ -47,6 +47,11 @@ class TrafficGen(object):
         avi_enable = deepcopy(vs_dict)
         avi_enable[ENABLE] = True
         name = "Enable Avi virtualservice: %s" % avi_enable[NAME]
+        if test_vip:
+            test_vip = test_vip.split('.')[:3]
+            avi_enable['vip'][0]['ip_address']['addr'] =\
+                '.'.join(test_vip + avi_enable['vip'][0]
+                         ['ip_address']['addr'].split('.')[3:])
         ansible_dict[TASKS].append(
             {
                 NAME: name,
@@ -54,6 +59,22 @@ class TrafficGen(object):
                 TAGS: [ENABLE_AVI, avi_enable[NAME], VIRTUALSERVICE]
             })
 
+    def update_avi_ansible_vip(self, vs_dict, ansible_dict):
+        """
+        This function is used to disable the avi virtual service for test vips.
+        :param vs_dict: avi virtualservice attributes.
+        :param ansible_dict: used for playbook generation.
+        :return: None
+        """
+        avi_enable = deepcopy(vs_dict)
+        avi_enable[ENABLE] = False
+        name = "Update Avi virtualservice vip: %s" % avi_enable[NAME]
+        ansible_dict[TASKS].append(
+            {
+                NAME: name,
+                AVI_VIRTUALSERVICE: avi_enable,
+                TAGS: [DISABLE_AVI, avi_enable[NAME], VIRTUALSERVICE]
+            })
 
     def create_avi_ansible_disable(self, vs_dict, ansible_dict):
         """
@@ -64,15 +85,14 @@ class TrafficGen(object):
         """
         avi_enable = deepcopy(vs_dict)
         avi_enable[ENABLE] = False
-        avi_enable[WHEN] = RESULT
         name = "Disable Avi virtualservice: %s" % avi_enable[NAME]
         ansible_dict[TASKS].append(
             {
                 NAME: name,
                 AVI_VIRTUALSERVICE: avi_enable,
-                TAGS: [DISABLE_AVI, avi_enable[NAME], VIRTUALSERVICE]
+                TAGS: [DISABLE_AVI, avi_enable[NAME], VIRTUALSERVICE],
+                WHEN: RESULT
             })
-
 
     def create_ansible_enable(self, vs_dict, ansible_dict):
         pass
@@ -80,8 +100,8 @@ class TrafficGen(object):
     def get_status_vs(self, vs_name, f5server, username, password, ns_vs_name_dict=None):
         pass
 
-class F5TrafficGen(TrafficGen):
 
+class F5TrafficGen(TrafficGen):
 
     def __init__(self, prefix):
         """
@@ -228,14 +248,16 @@ class NetscalerTrafficGen(TrafficGen):
 
         if vs_name in self.ns_vs_name_dict['lbvs']:
             vs_name = self.ns_vs_name_dict['lbvs'][vs_name]
-            api = 'http://%s/nitro/v1/config/lbvserver/%s' % (f5server, vs_name)
+            api = 'http://%s/nitro/v1/config/lbvserver/%s' % (
+                f5server, vs_name)
         elif vs_name in self.ns_vs_name_dict['csvs']:
             vs_name = self.ns_vs_name_dict['csvs'][vs_name]
-            api = 'http://%s/nitro/v1/config/csvserver/%s' % (f5server, vs_name)
+            api = 'http://%s/nitro/v1/config/csvserver/%s' % (
+                f5server, vs_name)
         status = requests.get(api, verify=False, auth=(username, password))
         status = json.loads(status.content)
         if 'lbvserver' in status and status['lbvserver'][0]['curstate'] == 'UP':
             return True
         elif 'csvserver' in status and \
-                        status['csvserver'][0]['curstate'] == 'UP':
+                status['csvserver'][0]['curstate'] == 'UP':
             return True

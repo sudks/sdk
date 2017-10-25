@@ -12,7 +12,7 @@ from avi.migrationtools.vs_filter import filter_for_vs
 from requests.packages import urllib3
 
 from avi.migrationtools.f5_converter import (f5_config_converter,
-                                            f5_parser, scp_util)
+                                             f5_parser, scp_util)
 from avi.migrationtools import avi_rest_lib
 from avi.migrationtools.avi_converter import AviConverter
 from avi.migrationtools.ansible.ansible_config_converter import AviAnsibleConverter
@@ -28,6 +28,7 @@ DEFAULT_SKIP_TYPES = [
     'VIMgrIPSubnetRuntime', 'Alert', 'VIMgrSEVMRuntime', 'VIMgrClusterRuntime',
     'VIMgrHostRuntime', 'DebugController', 'ServiceEngineGroup',
     'SeProperties', 'ControllerProperties', 'CloudProperties']
+
 
 class F5Converter(AviConverter):
     def __init__(self, args):
@@ -70,6 +71,8 @@ class F5Converter(AviConverter):
         self.profile_path = args.baseline_profile
         self.f5_passphrase_file = args.f5_passphrase_file
         self.vs_level_status = args.vs_level_status
+        # Added args for creating test vips
+        self.test_vip = args.test_vip
         # Created f5 util object.
         self.conversion_util = F5Util()
 
@@ -96,11 +99,11 @@ class F5Converter(AviConverter):
         is_download_from_host = False
         if self.f5_host_ip:
             input_dir = output_dir + os.path.sep + self.f5_host_ip + \
-                        os.path.sep + "input"
+                os.path.sep + "input"
             if not os.path.exists(input_dir):
                 os.makedirs(input_dir)
             output_dir = output_dir + os.path.sep + self.f5_host_ip + \
-                         os.path.sep + "output"
+                os.path.sep + "output"
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
             is_download_from_host = True
@@ -151,7 +154,8 @@ class F5Converter(AviConverter):
                 with open(partition, "r") as p_source_file:
                     p_src_str = p_source_file.read()
                     total_size = p_source_file.tell()
-                LOG.debug('Parsing partition config file:' + p_source_file.name)
+                LOG.debug('Parsing partition config file:' +
+                          p_source_file.name)
                 print "Parsing Partitions Configuration..."
                 partition_dict, not_supported_list = f5_parser.parse_config(
                     p_src_str, total_size, self.f5_config_version)
@@ -159,20 +163,20 @@ class F5Converter(AviConverter):
                     'Config file %s parsed successfully' % p_source_file.name)
                 # TO get all not supported configuration.
                 not_supported_list_partition = not_supported_list_partition \
-                                               + not_supported_list
+                    + not_supported_list
                 self.dict_merge(partition_conf, partition_dict)
             self.dict_merge(partition_conf, f5_config_dict)
             f5_config_dict = partition_conf
         # Added not supported parse config to file
         merged_not_supported_list = not_supported_list + \
-                                    not_supported_list_partition
+            not_supported_list_partition
         # Added status of all command that are not supported in parsing.
         for command in merged_not_supported_list:
             d = command.rsplit('/', 1)
             object_type = d[0].rsplit(' ', 1)
             object_name = '%s/%s' % (object_type[-1], d[-1])
             self.conversion_util.add_status_row(object_type[0], '', object_name,
-                                           conv_const.STATUS_NOT_SUPPORTED)
+                                                conv_const.STATUS_NOT_SUPPORTED)
         LOG.debug('Defaults files parsed successfully')
         LOG.debug('Conversion started')
         self.dict_merge(f5_defaults_dict, f5_config_dict)
@@ -186,7 +190,7 @@ class F5Converter(AviConverter):
             self.tenant, self.cloud_name, self.f5_passphrase_file,
             self.vs_level_status)
 
-        avi_config_dict["META"] = self.meta(self.tenant, 
+        avi_config_dict["META"] = self.meta(self.tenant,
                                             self.controller_version)
 
         avi_config = self.process_for_utils(avi_config_dict)
@@ -197,7 +201,7 @@ class F5Converter(AviConverter):
                           report_name)
         if self.create_ansible:
             avi_traffic = AviAnsibleConverter(
-                avi_config, output_dir, self.prefix, self.not_in_use)
+                avi_config, output_dir, self.prefix, self.not_in_use, test_vip=self.test_vip)
             avi_traffic.write_ansible_playbook(
                 self.f5_host_ip, self.f5_ssh_user, self.f5_ssh_password, 'f5')
         if self.option == 'auto-upload':
@@ -250,7 +254,7 @@ class F5Converter(AviConverter):
                 # Added to get directory path.
                 dir_path = self.conversion_util.get_project_path()
             with open(dir_path + os.path.sep + "f5_v%s_defaults.conf" %
-                    self.f5_config_version, "r") as defaults_file:
+                      self.f5_config_version, "r") as defaults_file:
                 if self.skip_default_file:
                     LOG.warning(
                         'Skipped default file : %s' % defaults_file.name)
@@ -267,6 +271,7 @@ class F5Converter(AviConverter):
                 self.dict_merge(dct[k], merge_dct[k])
             else:
                 dct[k] = merge_dct[k]
+
 
 if __name__ == "__main__":
 
@@ -299,7 +304,6 @@ if __name__ == "__main__":
         f5_converter.py -f bigip.conf --vs_level_status
     Usecase: To get the vs level status for the avi objects in excel sheet
     '''
-
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
@@ -367,7 +371,7 @@ if __name__ == "__main__":
                         help='Comma separated list of Avi Object types to skip '
                              'during conversion.\n  Eg. -s DebugController,'
                              'ServiceEngineGroup will skip debugcontroller and '
-                             'serviceengine objects',default=DEFAULT_SKIP_TYPES)
+                             'serviceengine objects', default=DEFAULT_SKIP_TYPES)
     # Added command line args to take skip type for ansible playbook
     parser.add_argument('--ansible_filter_types',
                         help='Comma separated list of Avi Objects types to '
@@ -393,14 +397,19 @@ if __name__ == "__main__":
                         action="store_true")
     # Added args for baseline profile json file
     parser.add_argument('--baseline_profile', help='asolute path for json '
-                                    'file containing baseline profiles')
+                        'file containing baseline profiles')
     parser.add_argument('--f5_passphrase_file',
                         help='F5 key passphrase yaml file path')
 
     parser.add_argument('--vs_level_status', action='store_true',
                         help='Add columns of vs reference and overall skipped '
                              'settings in status excel sheet')
-
+    # Adding support for test vip
+    parser.add_argument('--test_vip',
+                        help='Enable test vip for ansible generated file '
+                        'It will replace the original vip '
+                        'Note: The actual ip will vary from input to output'
+                        'use it with caution ')
 
     args = parser.parse_args()
     # print avi f5 converter version
@@ -410,4 +419,3 @@ if __name__ == "__main__":
         exit(0)
     f5_converter = F5Converter(args)
     f5_converter.convert()
-    
