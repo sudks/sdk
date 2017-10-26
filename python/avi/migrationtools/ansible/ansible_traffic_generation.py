@@ -140,7 +140,6 @@ class F5TrafficGen(TrafficGen):
 
         f5_values = deepcopy(f5_dict)
         f5_values[STATE] = ENABLE
-        f5_values[WHEN] = RESULT
         # Remove prefix from vs name of big ip.
         if self.prefix:
             f5_values[NAME] = self.remove_prefix(f5_dict[NAME])
@@ -150,7 +149,8 @@ class F5TrafficGen(TrafficGen):
                 NAME: name,
                 BIGIP_VS_SERVER: f5_values,
                 DELEGETE_TO: LOCAL_HOST,
-                TAGS: [ENABLE_F5, f5_dict[NAME], VIRTUALSERVICE]
+                TAGS: [ENABLE_F5, f5_dict[NAME], VIRTUALSERVICE],
+                WHEN: RESULT
             })
 
     def get_status_vs(self, vs_name, f5server, username, password, ns_vs_name_dict=None):

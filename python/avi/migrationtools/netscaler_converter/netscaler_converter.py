@@ -16,7 +16,7 @@ from avi.migrationtools.vs_filter import filter_for_vs
 from avi.migrationtools.config_patch import ConfigPatch
 from avi.migrationtools.avi_orphan_object import wipe_out_not_in_use
 from avi.migrationtools.ansible.ansible_config_converter import\
-                                AviAnsibleConverter
+    AviAnsibleConverter
 
 LOG = logging.getLogger(__name__)
 sdk_version = getattr(avi.migrationtools, '__version__', None)
@@ -26,6 +26,7 @@ DEFAULT_SKIP_TYPES = [
     'VIMgrIPSubnetRuntime', 'Alert', 'VIMgrSEVMRuntime', 'VIMgrClusterRuntime',
     'VIMgrHostRuntime', 'DebugController', 'ServiceEngineGroup',
     'SeProperties', 'ControllerProperties', 'CloudProperties']
+
 
 class NetscalerConverter(AviConverter):
     def __init__(self, args):
@@ -61,12 +62,14 @@ class NetscalerConverter(AviConverter):
         self.profile_path = args.baseline_profile
         # Added args for redirecting http vs to https vs
         self.redirect = args.redirect
-        # for ansible 
+        # for ansible
         self.create_ansible = args.ansible
         self.vs_level_status = args.vs_level_status
         # Added ansible flag
         self.ansible_skip_types = args.ansible_skip_types
         self.ansible_filter_types = args.ansible_filter_types
+        # Test Vip
+        self.test_vip = args.test_vip
 
     def init_logger_path(self):
         LOG.setLevel(logging.DEBUG)
@@ -100,11 +103,11 @@ class NetscalerConverter(AviConverter):
         is_download_from_host = False
         if self.ns_host_ip:
             input_dir = output_dir + os.path.sep + self.ns_host_ip + \
-                        os.path.sep + "input"
+                os.path.sep + "input"
             if not os.path.exists(input_dir):
                 os.makedirs(input_dir)
             output_dir = output_dir + os.path.sep + self.ns_host_ip + \
-                         os.path.sep + "output"
+                os.path.sep + "output"
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
             is_download_from_host = True
@@ -136,11 +139,11 @@ class NetscalerConverter(AviConverter):
         vs_name_dict['csvs'] = dict()
         vs_name_dict['lbvs'] = dict()
         avi_config = ns_conf_converter.convert(meta, ns_config, self.tenant,
-                     self.cloud_name, self.controller_version, output_dir,
-                     input_dir, skipped_cmds, self.vs_state,
-                     self.object_merge_check, report_name, self.prefix,
-                     vs_name_dict, self.profile_path, self.redirect,
-                     self.ns_passphrase_file, user_ignore, self.vs_level_status)
+                                               self.cloud_name, self.controller_version, output_dir,
+                                               input_dir, skipped_cmds, self.vs_state,
+                                               self.object_merge_check, report_name, self.prefix,
+                                               vs_name_dict, self.profile_path, self.redirect,
+                                               self.ns_passphrase_file, user_ignore, self.vs_level_status)
         avi_config = self.process_for_utils(
             avi_config)
         # Check if flag true then skip not in use object
@@ -151,16 +154,14 @@ class NetscalerConverter(AviConverter):
         if self.create_ansible:
             avi_traffic = AviAnsibleConverter(
                 avi_config, output_dir, self.prefix, self.not_in_use,
-                ns_vs_name_dict=vs_name_dict)
-            avi_traffic.write_ansible_playbook\
-                (
-                    self.ns_host_ip, self.ns_ssh_user, self.ns_ssh_password,
-                    'netscaler'
-                )
+                ns_vs_name_dict=vs_name_dict, test_vip=self.test_vip)
+            avi_traffic.write_ansible_playbook(
+                self.ns_host_ip, self.ns_ssh_user, self.ns_ssh_password,
+                'netscaler'
+            )
         if self.option == 'auto-upload':
             self.upload_config_to_controller(avi_config)
         return avi_config
-        
 
 
 if __name__ == "__main__":
@@ -271,10 +272,10 @@ if __name__ == "__main__":
                         action="store_true")
     # Added args for baseline profile json file
     parser.add_argument('--baseline_profile', help='asolute path for json '
-                                    'file containing baseline profiles')
+                        'file containing baseline profiles')
     # Added args for redirecting http vs to https vs
     parser.add_argument('--redirect', help='redirect http vs to https vs if '
-                               'there is no pool assigned', action="store_true")
+                        'there is no pool assigned', action="store_true")
 
     # Ansible tags
     parser.add_argument('--ansible', help='Flag for create ansible file',
@@ -297,10 +298,14 @@ if __name__ == "__main__":
                              'VirtualService, Pool will do ansible conversion '
                              'only for Virtualservice and Pool objects',
                         default=[])
-    # Create Ansible Script based on Flag
-    parser.add_argument('--ansible',
-                        help='Flag for create ansible file',
-                        action='store_true')
+
+    # Adding support for test vip
+    parser.add_argument('--test_vip',
+                        help='Enable test vip for ansible generated file '
+                        'It will replace the original vip '
+                        'Note: The actual ip will vary from input to output'
+                        'use it with caution ')
+
     args = parser.parse_args()
     # print avi netscaler converter version
     if args.version:
