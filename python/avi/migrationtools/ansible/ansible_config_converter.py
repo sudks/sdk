@@ -341,13 +341,13 @@ class AviAnsibleConverter(object):
                 if self.test_vip:
                     trafic_obj.update_avi_ansible_vip(
                         vs_dict, ansible_dict)
-                # Added call to check progress.
-                progressbar_count += 1
-                msg = "Ansible Generate Traffic..."
-                mg_util.print_progress_bar(progressbar_count, total_size, msg,
-                                           prefix='Progress', suffix='')
                 trafic_obj.create_avi_ansible_disable(vs_dict, ansible_dict)
                 trafic_obj.create_ansible_enable(f5_dict, ansible_dict)
+            # Added call to check progress.
+            progressbar_count += 1
+            msg = "Ansible Generate Traffic..."
+            mg_util.print_progress_bar(progressbar_count, total_size, msg,
+                                       prefix='Progress', suffix='')
 
     def write_ansible_playbook(self, f5server=None, f5user=None,
                                f5password=None, instance_type=None):
