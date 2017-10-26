@@ -154,7 +154,8 @@ class NetscalerConverter(AviConverter):
         if self.create_ansible:
             avi_traffic = AviAnsibleConverter(
                 avi_config, output_dir, self.prefix, self.not_in_use,
-                ns_vs_name_dict=vs_name_dict, test_vip=self.test_vip)
+                ns_vs_name_dict=vs_name_dict, test_vip=self.test_vip,
+                skip_types=self.ansible_skip_types)
             avi_traffic.write_ansible_playbook(
                 self.ns_host_ip, self.ns_ssh_user, self.ns_ssh_password,
                 'netscaler'
