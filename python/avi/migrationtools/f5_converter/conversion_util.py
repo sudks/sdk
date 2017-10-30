@@ -606,7 +606,7 @@ class F5Util(MigrationUtil):
             # VS VIP object to be put in admin tenant to shared across tenants
             updated_vsvip_ref = self.get_object_ref(vs_vip_name, 'vsvip',
                                                     'admin',
-                                                    cloud_name, prefix)
+                                                    cloud_name)
         return services_obj, ip_addr, updated_vsvip_ref, vrf_ref
 
     def clone_pool(self, pool_name, clone_for, avi_pool_list, is_vs,
@@ -887,27 +887,19 @@ class F5Util(MigrationUtil):
                     avi_config['Tenant'].remove(tenant)
 
     def create_hdr_erase_rule(self, name, hdr_name, rule_index):
-        return self.create_header_rule(name, hdr_name, "HDR_DOES_NOT_EXIST",
-                                  "HTTP_REPLACE_HDR", "000000", rule_index)
+        return self.create_header_rule(name, hdr_name, "HTTP_REPLACE_HDR",
+                                       "000000", rule_index)
 
 
     def create_hdr_insert_rule(self, name, hdr_name, val, rule_index):
-        return self.create_header_rule(name, hdr_name, "HDR_EXISTS", "HTTP_ADD_HDR",
+        return self.create_header_rule(name, hdr_name, "HTTP_ADD_HDR",
                                   val, rule_index)
 
-    def create_header_rule(self, name, hdr_name, match, action, val,
+    def create_header_rule(self, name, hdr_name, action, val,
                            rule_index):
         rule = {
             "name": name,
             "index": rule_index,
-            "match": {
-                "hdrs": [
-                    {
-                        "hdr": hdr_name,
-                        "match_criteria": match
-                    }
-                ]
-            },
             "hdr_action": [
                 {
                     "action": action,
@@ -982,8 +974,10 @@ class F5Util(MigrationUtil):
             name = parts[2]
         elif name and '/' in name:
             parts = name.split('/')
-            tenant = parts[0]
-            name = parts[1]
+            # Changed the index to get the tenant and name in case of
+            # prefixed name
+            tenant = parts[-2]
+            name = parts[-1]
         if tenant.lower() == 'common':
             tenant = 'admin'
         if '/' in name:
