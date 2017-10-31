@@ -58,8 +58,11 @@ class F5Converter(AviConverter):
         self.patch = args.patch
         # vs_filter.py args taken into classs variable
         self.vs_filter = args.vs_filter
+        # skip the object while creating ansible playbook
         self.ansible_skip_types = args.ansible_skip_types
+        # Create ansible object playbook based on filter types.
         self.ansible_filter_types = args.ansible_filter_types
+        # Tag to create ansible playbook.
         self.create_ansible = args.ansible
         # Prefix for objects
         self.prefix = args.prefix
@@ -77,6 +80,10 @@ class F5Converter(AviConverter):
         self.conversion_util = F5Util()
 
     def print_pip_and_controller_version(self):
+        """
+        This method print the sdk version and controller version
+        :return:
+        """
         # Added input parameters to log file
         LOG.info("Input parameters: %s" % ' '.join(sys.argv))
         # Add logger and print avi netscaler converter version
@@ -86,6 +93,11 @@ class F5Converter(AviConverter):
               % (sdk_version, self.controller_version)
 
     def upload_config_to_controller(self, avi_config):
+        """
+
+        :param avi_config: conversion of f5 to avi compatible dict.
+        :return:
+        """
         avi_rest_lib.upload_config_to_controller(
             avi_config, self.controller_ip, self.user, self.password,
             self.tenant)
@@ -115,7 +127,6 @@ class F5Converter(AviConverter):
         partitions = []
         # Add logger and print avi f5 converter version
         self.print_pip_and_controller_version()
-
         if self.partition_config:
             partitions = self.partition_config.split(',')
         source_file = None
@@ -199,6 +210,7 @@ class F5Converter(AviConverter):
             avi_config = wipe_out_not_in_use(avi_config)
         self.write_output(avi_config, output_dir, '%s-Output.json' %
                           report_name)
+        # Call to create ansible playbook if create ansible flag set.
         if self.create_ansible:
             avi_traffic = AviAnsibleConverter(
                 avi_config, output_dir, self.prefix, self.not_in_use,
@@ -266,6 +278,12 @@ class F5Converter(AviConverter):
         return f5_defaults_dict
 
     def dict_merge(self, dct, merge_dct):
+        """
+        This method merge the two dicts into one.
+        :param dct:
+        :param merge_dct:
+        :return:
+        """
         for k, v in merge_dct.iteritems():
             if (k in dct and isinstance(dct[k], dict) and
                     isinstance(merge_dct[k], dict)):
