@@ -64,7 +64,7 @@ setup = dict(
     vs_level_status=True,
     ansible_skip_types=None,
     test_vip=None,
-    ansible_filter_types=None
+    ansible_filter_types=None,
     output_file_path=output_file
 )
 
@@ -373,8 +373,8 @@ class TestNetscalerConverter:
         """
         netscaler_conv(config_file_name=setup.get('config_file_name'),
                        option=setup.get('option'),
-                       ansible=setup.get ('ansible'),
-                       output_file_path=setup.get ('output_file_path'),
+                       ansible=setup.get('ansible'),
+                       output_file_path=setup.get('output_file_path'),
                        controller_version=setup.get('controller_version_v17'),
                        controller_ip=setup.get('controller_ip_17_1_1'),
                        user=setup.get('controller_user_17_1_1'),
@@ -418,7 +418,7 @@ class TestNetscalerConverter:
         Create Ansible Script based on Flag
         """
         netscaler_conv(config_file_name=setup.get('config_file_name'),
-                       output_file_path=setup.get ('output_file_path'),
+                       output_file_path=setup.get('output_file_path'),
                        controller_version=setup.get('controller_version_v17'),
                        ansible=setup.get('ansible'))
 
@@ -481,21 +481,21 @@ class TestNetscalerConverter:
         Auto Upload configuration file on controller.
         """
         create_tenant(file_attribute['controller_ip_17_1_1'], file_attribute['controller_user_17_1_1'],
-                          file_attribute['controller_password_17_1_1'], file_attribute['tenant'])
+                      file_attribute['controller_password_17_1_1'], file_attribute['tenant'])
 
-        create_cloud (file_attribute['controller_ip_17_1_1'], file_attribute['controller_user_17_1_1'],
-                      file_attribute['controller_password_17_1_1'], file_attribute['cloud_name'])
+        create_cloud(file_attribute['controller_ip_17_1_1'], file_attribute['controller_user_17_1_1'],
+                     file_attribute['controller_password_17_1_1'], file_attribute['cloud_name'])
 
-        netscaler_conv (config_file_name=setup.get ('config_file_name'),
-                        option=setup.get ('option'),
-                        tenant=file_attribute['tenant'],
-                        cloud_name=file_attribute['cloud_name'],
-                        ansible=setup.get ('ansible'),
-                        output_file_path=setup.get ('output_file_path'),
-                        controller_version=setup.get ('controller_version_v17'),
-                        controller_ip=setup.get ('controller_ip_17_1_1'),
-                        user=setup.get ('controller_user_17_1_1'),
-                        password=setup.get ('controller_password_17_1_1'))
+        netscaler_conv(config_file_name=setup.get('config_file_name'),
+                       option=setup.get('option'),
+                       tenant=file_attribute['tenant'],
+                       cloud_name=file_attribute['cloud_name'],
+                       ansible=setup.get('ansible'),
+                       output_file_path=setup.get('output_file_path'),
+                       controller_version=setup.get('controller_version_v17'),
+                       controller_ip=setup.get('controller_ip_17_1_1'),
+                       user=setup.get('controller_user_17_1_1'),
+                       password=setup.get('controller_password_17_1_1'))
 
 
 def teardown():

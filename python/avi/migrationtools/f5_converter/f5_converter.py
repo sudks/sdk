@@ -179,8 +179,8 @@ class F5Converter(AviConverter):
             self.dict_merge(partition_conf, f5_config_dict)
             f5_config_dict = partition_conf
         # Added not supported parse config to file
-        merged_not_supported_list = not_supported_list + \
-            not_supported_list_partition
+        merged_not_supported_list = (not_supported_list +
+                                     not_supported_list_partition)
         # Added status of all command that are not supported in parsing.
         for command in merged_not_supported_list:
             d = command.rsplit('/', 1)
