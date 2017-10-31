@@ -4,7 +4,7 @@ import re
 import avi.migrationtools.netscaler_converter.ns_constants as ns_constants
 from pkg_resources import parse_version
 from avi.migrationtools.netscaler_converter.lbvs_converter \
-    import (redirect_pools, used_pool_group_ref,tmp_policy_ref)
+    import (redirect_pools, used_pool_group_ref)
 from avi.migrationtools.netscaler_converter.ns_constants \
     import (STATUS_SKIPPED, OBJECT_TYPE_APPLICATION_PROFILE,
             OBJECT_TYPE_SSL_PROFILE, OBJECT_TYPE_HTTP_POLICY_SET,
@@ -19,7 +19,7 @@ from avi.migrationtools.netscaler_converter.profile_converter import \
 from avi.migrationtools.netscaler_converter.ns_util import NsUtil
 
 LOG = logging.getLogger(__name__)
-
+tmp_policy_ref = []
 tmp_used_pool_group_ref = used_pool_group_ref
 # Creating object for util library.
 ns_util = NsUtil()
@@ -216,6 +216,9 @@ class CsvsConverter(object):
                                         OBJECT_TYPE_APPLICATION_PROFILE,
                                         self.tenant_name)
                         vs_obj['application_profile_ref'] = http_prof_ref
+                        # Added additional attribute like xff_enabled etc to
+                        # application profile on basis of service or service
+                        # group command
                         addition_attr = {}
                         if bind_conf_list:
                             for bindlist in bind_conf_list:
@@ -483,14 +486,16 @@ class CsvsConverter(object):
                         if policy_obj:
                             ns_util.add_policy(policy_obj, updated_vs_name,
                                  avi_config, tmp_policy_ref, vs_obj,
-                                 self.tenant_name, self.cloud_name, self.prefix)
+                                 self.tenant_name, self.cloud_name, self.prefix,
+                                 tmp_used_pool_group_ref)
                 # Add the http policy set reference to VS in AVI
                 if policy:
                     policy['name'] = policy['name'] + updated_vs_name
-                    # Added fix for same policy refferred in multiple vs
+                    # Added fix for same policy referred in multiple vs
                     ns_util.add_policy(policy, updated_vs_name, avi_config,
                                      tmp_policy_ref, vs_obj, self.tenant_name,
-                                     self.cloud_name, self.prefix)
+                                     self.cloud_name, self.prefix,
+                                     tmp_used_pool_group_ref)
                 # Add reference of pool group to VS
                 if default_pool_group:
                     pool_group_ref = '%s-poolgroup' % default_pool_group
@@ -516,7 +521,6 @@ class CsvsConverter(object):
                             updated_pool_group_ref, OBJECT_TYPE_POOL_GROUP,
                             self.tenant_name, self.cloud_name)
                         vs_obj['pool_group_ref'] = avi_pool_group_ref
-                        tmp_used_pool_group_ref.append(updated_pool_group_ref)
                 if lb_vserver_bind_conf:
                     bind_cs_vserver_command = 'bind cs vserver'
                     bind_cs_vserver_complete_command = ns_util. \
@@ -546,6 +550,31 @@ class CsvsConverter(object):
                         ns_add_cs_vserver_complete_command, STATUS_SKIPPED,
                         skipped_status)
                     continue
+                # Added code to skipped L4 VS if pool or pool group not present
+                if vs_obj.get('application_profile_ref'):
+                    app_name = ns_util.get_name(vs_obj[
+                                                    'application_profile_ref'])
+                    application_profile_obj = [obj for obj in (sysdict[
+                                              'ApplicationProfile'] +
+                                              avi_config['ApplicationProfile'])
+                                               if obj['name'] == app_name]
+                    if (application_profile_obj and application_profile_obj[0][
+                      'type'] == 'APPLICATION_PROFILE_TYPE_L4') or app_name == \
+                      'System-L4-Application':
+                        if not vs_obj.get('pool_ref', vs_obj.get(
+                                'pool_group_ref')):
+                            vs_conv_status = STATUS_SKIPPED
+                            skipped_status = "Skipped:Failed to convert L4 VS "\
+                                             "dont have pool or pool group ref"\
+                                             " %s" % vs_name
+                            LOG.debug(skipped_status)
+                            ns_util.add_status_row(cs_vs['line_no'],
+                                            ns_add_cs_vserver_command, key,
+                                            ns_add_cs_vserver_complete_command,
+                                            vs_conv_status, skipped_status)
+                            continue
+                if vs_obj.get('pool_group_ref'):
+                    tmp_used_pool_group_ref.append(updated_pool_group_ref)
                 cs_vs_list.append(vs_obj)
                 # Add summery of this cs vs in CSV/report
                 conv_status = ns_util.get_conv_status(

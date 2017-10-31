@@ -606,7 +606,7 @@ class F5Util(MigrationUtil):
             # VS VIP object to be put in admin tenant to shared across tenants
             updated_vsvip_ref = self.get_object_ref(vs_vip_name, 'vsvip',
                                                     'admin',
-                                                    cloud_name, prefix)
+                                                    cloud_name)
         return services_obj, ip_addr, updated_vsvip_ref, vrf_ref
 
     def clone_pool(self, pool_name, clone_for, avi_pool_list, is_vs,
@@ -881,30 +881,25 @@ class F5Util(MigrationUtil):
             profile.pop('fallback_host', [])
         for profile in avi_config.get('PKIProfile', []):
             profile.pop('mode', None)
-
+        if 'Tenant' in avi_config:
+            for tenant in avi_config['Tenant']:
+                if tenant['name'] == 'admin':
+                    avi_config['Tenant'].remove(tenant)
 
     def create_hdr_erase_rule(self, name, hdr_name, rule_index):
-        return self.create_header_rule(name, hdr_name, "HDR_DOES_NOT_EXIST",
-                                  "HTTP_REPLACE_HDR", "000000", rule_index)
+        return self.create_header_rule(name, hdr_name, "HTTP_REPLACE_HDR",
+                                       "000000", rule_index)
 
 
     def create_hdr_insert_rule(self, name, hdr_name, val, rule_index):
-        return self.create_header_rule(name, hdr_name, "HDR_EXISTS", "HTTP_ADD_HDR",
+        return self.create_header_rule(name, hdr_name, "HTTP_ADD_HDR",
                                   val, rule_index)
 
-    def create_header_rule(self, name, hdr_name, match, action, val,
+    def create_header_rule(self, name, hdr_name, action, val,
                            rule_index):
         rule = {
             "name": name,
             "index": rule_index,
-            "match": {
-                "hdrs": [
-                    {
-                        "hdr": hdr_name,
-                        "match_criteria": match
-                    }
-                ]
-            },
             "hdr_action": [
                 {
                     "action": action,
@@ -964,6 +959,8 @@ class F5Util(MigrationUtil):
                 "cloud_ref": self.get_object_ref(cloud_ref, 'cloud'),
                 "tenant_ref": self.get_object_ref('admin', 'tenant')
             }
+            if vrf_name == 'global':
+                vrf_obj['system_default'] = True
             vrf_list.append(vrf_obj)
 
 
@@ -977,8 +974,10 @@ class F5Util(MigrationUtil):
             name = parts[2]
         elif name and '/' in name:
             parts = name.split('/')
-            tenant = parts[0]
-            name = parts[1]
+            # Changed the index to get the tenant and name in case of
+            # prefixed name
+            tenant = parts[-2]
+            name = parts[-1]
         if tenant.lower() == 'common':
             tenant = 'admin'
         if '/' in name:
@@ -1856,13 +1855,12 @@ class F5Util(MigrationUtil):
                     obj['https_monitor']['ssl_attributes']['ssl_profile_ref'] =\
                         self.get_object_ref(updated_name, type_cons, tenant)
 
-    def update_app_profile(self, aviconfig, sys_dict, tenant):
+    def update_app_profile(self, aviconfig, sys_dict):
         """
         This method updates the application profile to http when there are
         multiple services to a L4 app VS in which one of them is ssl enabled
         :param aviconfig: avi config dict
         :param sys_dict: system config dict
-        :param tenant: tenant to be used for reference
         :return:
         """
         for vs_obj in aviconfig['VirtualService']:
@@ -1878,8 +1876,7 @@ class F5Util(MigrationUtil):
                         if service['enable_ssl']:
                             vs_obj['application_profile_ref'] = \
                                 self.get_object_ref('System-HTTP',
-                                    conv_const.OBJECT_TYPE_APPLICATION_PROFILE,
-                                                    tenant)
+                                    conv_const.OBJECT_TYPE_APPLICATION_PROFILE)
                             LOG.debug('Changed the application profile '
                                       'reference from L4 to System-HTTP')
                             if vs_obj.get('network_profile_ref'):
@@ -1893,13 +1890,13 @@ class F5Util(MigrationUtil):
                                     'profile']['type'] != \
                                         'PROTOCOL_TYPE_TCP_PROXY':
                                     LOG.debug('Changed the network profile '
-                                              'reference from %s to TCP-Proxy',
-                                              nw_profile_obj[0]['profile'][
-                                              'type'])
+                                              'reference from %s to TCP-Proxy '
+                                              'for VS %s', nw_profile_obj[0][
+                                              'profile']['type'], vs_obj[
+                                              'name'])
                                     vs_obj['network_profile_ref'] = \
                                         self.get_object_ref('System-TCP-Proxy',
-                                         conv_const.OBJECT_TYPE_NETWORK_PROFILE,
-                                                    tenant)
+                                         conv_const.OBJECT_TYPE_NETWORK_PROFILE)
                             break
 
     def set_pool_group_vrf(self, pool_ref, vrf_ref, avi_config):
@@ -2110,5 +2107,37 @@ class F5Util(MigrationUtil):
             pool_obj[0].pop('vrf_ref')
             LOG.debug("Removed vrf ref from the pool %s", pool_ref)
 
-
+    def update_network_profile(self, aviconfig, sys_dict):
+        """
+        This method updates the network profile to TCP PROXY when VS has HTTP
+        application profile
+        :param aviconfig: avi config dict
+        :param sys_dict: system config dict
+        :return:
+        """
+        for vs_obj in aviconfig['VirtualService']:
+            if vs_obj.get('application_profile_ref'):
+                app_profile = self.get_name(vs_obj['application_profile_ref'])
+                app_profile_obj = [app for app in sys_dict['ApplicationProfile']
+                                   + aviconfig['ApplicationProfile']
+                                   if app['name'] == app_profile]
+                if app_profile_obj and (app_profile_obj[0]['type'] ==
+                        'APPLICATION_PROFILE_TYPE_HTTP' or app_profile_obj[
+                        0]['name'] == 'System-HTTP'):
+                    if vs_obj.get('network_profile_ref'):
+                        nw_profile = self.get_name(vs_obj[
+                                                       'network_profile_ref'])
+                        nw_profile_obj = [nw for nw in sys_dict[
+                                          'NetworkProfile'] + aviconfig[
+                                          'NetworkProfile'] if
+                                          nw['name'] == nw_profile]
+                        if nw_profile_obj and nw_profile_obj[0][
+                            'profile']['type'] != 'PROTOCOL_TYPE_TCP_PROXY':
+                            LOG.debug('Changed the network profile reference '
+                                      'from %s to TCP-Proxy as VS %s has HTTP '
+                                      'profile', nw_profile_obj[0]['profile'][
+                                      'type'], vs_obj['name'])
+                            vs_obj['network_profile_ref'] = \
+                                self.get_object_ref('System-TCP-Proxy',
+                                 conv_const.OBJECT_TYPE_NETWORK_PROFILE)
 
