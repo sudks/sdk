@@ -348,7 +348,7 @@ class LbvsConverter(object):
                         'System-TCP-Proxy', 'networkprofile', tenant='admin')
                 elif not http_prof and (lb_vs['attrs'][1]).upper() == 'SSL':
                     # Added Custom Profile with http to https redirect enable
-                    ns_migration_profile = ns_util.Create_Http_to_Https_Custom_profile()
+                    ns_migration_profile = ns_util.create_http_to_https_custom_profile()
                     app_name = [app_p for app_p in avi_config[
                         'ApplicationProfile'] if app_p[
                                     'name'] == ns_migration_profile['name']]

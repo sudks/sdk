@@ -1744,7 +1744,7 @@ class NsUtil(MigrationUtil):
             })
         return action
 
-    def Create_Http_to_Https_Custom_profile(self):
+    def create_http_to_https_custom_profile(self):
         '''
 
         :return: custom application profile dict
