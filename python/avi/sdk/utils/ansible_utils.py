@@ -29,7 +29,8 @@ class AviCheckModeResponse(object):
         return self.obj
 
 
-def ansible_return(module, rsp, changed, req=None, existing_obj=None):
+def ansible_return(module, rsp, changed, req=None, existing_obj=None,
+                   api_context=None):
     """
     :param module: AnsibleModule
     :param rsp: ApiResponse from avi_api
@@ -40,12 +41,13 @@ def ansible_return(module, rsp, changed, req=None, existing_obj=None):
     Returns: specific ansible module exit function
     """
     if rsp.status_code > 299:
-        return module.fail_json(msg='Error %d Msg %s req: %s' % (
-            rsp.status_code, rsp.text, req))
+        return module.fail_json(msg='Error %d Msg %s req: %s api_context:%s' % (
+            rsp.status_code, rsp.text, req, api_context))
     if changed and existing_obj:
         return module.exit_json(
-            changed=changed, obj=rsp.json(), old_obj=existing_obj)
-    return module.exit_json(changed=changed, obj=rsp.json())
+            changed=changed, obj=rsp.json(), old_obj=existing_obj,
+            api_context=api_context)
+    return module.exit_json(changed=changed, obj=rsp.json(), api_context=api_context)
 
 
 def purge_optional_fields(obj, module):
@@ -429,8 +431,10 @@ def avi_ansible_api(module, obj_type, sensitive_fields):
     if rsp is None:
         return module.exit_json(changed=changed, obj=existing_obj)
     else:
+        os.environ['api_token'] = api.keystone_token['csrftoken']
         return ansible_return(module, rsp, changed, req,
-                              existing_obj=existing_obj)
+                              existing_obj=existing_obj,
+                              api_context=api.keystone_token['csrftoken'] )
 
 
 def avi_common_argument_spec():
@@ -446,4 +450,5 @@ def avi_common_argument_spec():
             tenant=dict(default='admin'),
             tenant_uuid=dict(default=''),
             api_version=dict(default='16.4.4', type='str'),
-            avi_credentials=dict(default=None, no_log=True, type='dict'))
+            avi_credentials=dict(default=None, no_log=True, type='dict'),
+            api_token=dict(default=os.environ.get('api_token', '')))

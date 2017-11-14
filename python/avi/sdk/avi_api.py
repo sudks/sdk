@@ -274,11 +274,11 @@ class ApiSession(Session):
 
     @property
     def keystone_token(self):
-        self.avi_credentials.token
+        return sessionDict[self.key]
 
     @keystone_token.setter
     def keystone_token(self, token):
-        self.avi_credentials.token = token
+        sessionDict[self.key]['csrftoken'] = token
 
     @property
     def tenant_uuid(self):
