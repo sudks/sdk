@@ -134,6 +134,7 @@ class AviCredentials(object):
     token = None
     port = None
     timeout = 300
+    session_id = None
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
@@ -161,6 +162,8 @@ class AviCredentials(object):
             self.tenant = module.params['tenant']
         if module.params['tenant_uuid']:
             self.tenant_uuid = module.params['tenant_uuid']
+        if module.params['session_id']:
+            self.session_id = module.params['session_id']
 
     def __str__(self):
         return 'controller %s user %s api %s tenant %s' % (
