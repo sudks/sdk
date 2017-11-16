@@ -30,7 +30,7 @@ class AviCheckModeResponse(object):
 
 
 def ansible_return(module, rsp, changed, req=None, existing_obj=None,
-                   api_context=None):
+                   api_context=None, session_id=None):
     """
     :param module: AnsibleModule
     :param rsp: ApiResponse from avi_api
@@ -41,13 +41,14 @@ def ansible_return(module, rsp, changed, req=None, existing_obj=None,
     Returns: specific ansible module exit function
     """
     if rsp.status_code > 299:
-        return module.fail_json(msg='Error %d Msg %s req: %s api_context:%s' % (
-            rsp.status_code, rsp.text, req, api_context))
+        return module.fail_json(msg='Error %d Msg %s req: %s api_context:%s session_id:%s' % (
+            rsp.status_code, rsp.text, req, api_context, session_id))
     if changed and existing_obj:
         return module.exit_json(
             changed=changed, obj=rsp.json(), old_obj=existing_obj,
-            api_context=api_context)
-    return module.exit_json(changed=changed, obj=rsp.json(), api_context=api_context)
+            api_context=api_context, session_id=session_id)
+    return module.exit_json(changed=changed, obj=rsp.json(),
+                            api_context=api_context, session_id=session_id)
 
 
 def purge_optional_fields(obj, module):
@@ -285,11 +286,20 @@ def avi_ansible_api(module, obj_type, sensitive_fields):
 
     api_creds = AviCredentials()
     api_creds.update_from_ansible_module(module)
-    api = ApiSession.get_session(
-        api_creds.controller, api_creds.username, password=api_creds.password,
-        timeout=api_creds.timeout, tenant=api_creds.tenant,
-        tenant_uuid=api_creds.tenant_uuid, token=api_creds.token,
-        port=api_creds.port)
+    if module.params.get('api_token') and module.params.get('session_id'):
+        api = ApiSession.get_session(
+            api_creds.controller, api_creds.username,
+            password=api_creds.password,
+            timeout=api_creds.timeout, tenant=api_creds.tenant,
+            tenant_uuid=api_creds.tenant_uuid,
+            token=module.params.get('api_token'),
+            port=api_creds.port, session_id=module.params.get('session_id'))
+    else:
+        api = ApiSession.get_session(
+            api_creds.controller, api_creds.username, password=api_creds.password,
+            timeout=api_creds.timeout, tenant=api_creds.tenant,
+            tenant_uuid=api_creds.tenant_uuid, token=api_creds.token,
+            port=api_creds.port)
     state = module.params['state']
     # Get the api version.
     avi_update_method = module.params.get('avi_api_update_method', 'put')
@@ -429,12 +439,14 @@ def avi_ansible_api(module, obj_type, sensitive_fields):
             rsp = api.post(obj_type, data=obj, tenant=tenant,
                            tenant_uuid=tenant_uuid, api_version=api_version)
     if rsp is None:
-        return module.exit_json(changed=changed, obj=existing_obj)
+        return module.exit_json(changed=changed, obj=existing_obj,
+                                api_context=api.keystone_token['csrftoken'],
+                                session_id=api.session_id)
     else:
-        os.environ['api_token'] = api.keystone_token['csrftoken']
         return ansible_return(module, rsp, changed, req,
                               existing_obj=existing_obj,
-                              api_context=api.keystone_token['csrftoken'] )
+                              api_context=api.keystone_token['csrftoken'],
+                              session_id=api.session_id)
 
 
 def avi_common_argument_spec():
@@ -451,4 +463,5 @@ def avi_common_argument_spec():
             tenant_uuid=dict(default=''),
             api_version=dict(default='16.4.4', type='str'),
             avi_credentials=dict(default=None, no_log=True, type='dict'),
-            api_token=dict(default=os.environ.get('api_token', '')))
+            api_token=dict(type='str'),
+            session_id=dict(type='str'))

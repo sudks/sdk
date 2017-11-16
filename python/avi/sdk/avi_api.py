@@ -185,7 +185,8 @@ class ApiSession(Session):
     def __init__(self, controller_ip=None, username=None, password=None,
                  token=None, tenant=None, tenant_uuid=None, verify=False,
                  port=None, timeout=60, api_version=None,
-                 retry_conxn_errors=True, data_log=False, avi_credentials=None):
+                 retry_conxn_errors=True, data_log=False,
+                 avi_credentials=None, session_id=None):
         """
          ApiSession takes ownership of avi_credentials and may update the
          information inside it.
@@ -210,7 +211,7 @@ class ApiSession(Session):
             self.avi_credentials = AviCredentials(
                 controller=controller_ip, username=username, password=password,
                 api_version=api_version, tenant=tenant, tenant_uuid=tenant_uuid,
-                token=token, port=port, timeout=timeout)
+                token=token, port=port, timeout=timeout, session_id=session_id)
         else:
             self.avi_credentials = avi_credentials
         self.headers = {}
@@ -242,7 +243,15 @@ class ApiSession(Session):
         self.timeout = timeout
         self.key = '%s:%s:%s' % (self.avi_credentials.controller,
                                  self.avi_credentials.username, k_port)
-        sessionDict[self.key] = {'api': self, "last_used": datetime.utcnow()}
+        # Added api token and session id to sessionDict for handle single
+        # session
+        if self.avi_credentials.token:
+            sessionDict[self.key] = {'api': self,
+                                     "csrftoken": self.avi_credentials.token,
+                                     "session_id":self.avi_credentials.session_id,
+                                     "last_used": datetime.utcnow()}
+        else:
+            sessionDict[self.key] = {'api': self, "last_used": datetime.utcnow()}
         self.num_session_retries = 0
         self.pid = os.getpid()
         ApiSession._clean_inactive_sessions()
@@ -315,12 +324,16 @@ class ApiSession(Session):
     def api_version(self, api_version):
         self.avi_credentials.api_version = api_version
 
+    @property
+    def session_id(self):
+        return sessionDict[self.key]['session_id']
+
     @staticmethod
     def get_session(
             controller_ip=None, username=None, password=None, token=None, tenant=None,
             tenant_uuid=None, verify=False, port=None, timeout=60,
             retry_conxn_errors=True, api_version=None, data_log=False,
-            avi_credentials=None):
+            avi_credentials=None, session_id=None):
         """
         returns the session object for same user and tenant
         calls init if session dose not exist and adds it to session cache
@@ -340,7 +353,7 @@ class ApiSession(Session):
             avi_credentials = AviCredentials(
                 controller=controller_ip, username=username, password=password,
                 api_version=api_version, tenant=tenant, tenant_uuid=tenant_uuid,
-                token=token, port=port, timeout=timeout)
+                token=token, port=port, timeout=timeout, session_id=session_id)
 
         k_port = avi_credentials.port if avi_credentials.port else 443
         if avi_credentials.controller.startswith('http'):
@@ -382,7 +395,6 @@ class ApiSession(Session):
             body["password"] = self.avi_credentials.password
         else:
             body["token"] = self.avi_credentials.token
-
         logger.debug('authenticating user %s ', self.avi_credentials.username)
         rsp = super(ApiSession, self).post(self.prefix+"/login", body,
                                            timeout=self.timeout)
@@ -399,7 +411,7 @@ class ApiSession(Session):
             csrftoken = rsp.cookies['csrftoken']
             sessionDict[self.key] = {
                 'csrftoken': csrftoken,
-                'cookie': self.cookies,
+                'session_id': rsp.cookies['sessionid'],
                 'last_used': datetime.utcnow(),
                 'api': self
             }
@@ -420,7 +432,14 @@ class ApiSession(Session):
         api_hdrs['timeout'] = str(timeout)
         if self.key in sessionDict and 'csrftoken' in sessionDict.get(self.key):
             api_hdrs['X-CSRFToken'] = sessionDict.get(self.key)['csrftoken']
-            self.cookies = sessionDict.get(self.key)['cookie']
+            # Added Cookie to handle single session
+            api_hdrs['Cookie'] = "[<Cookie csrftoken=%s " \
+                                 "for %s/>, " \
+                                 "<Cookie sessionid=%s " \
+                                 "for %s/>]" %(sessionDict[self.key]['csrftoken'],
+                                               self.avi_credentials.controller,
+                                               sessionDict[self.key]['session_id'],
+                                               self.avi_credentials.controller)
         else:
             self.authenticate_session()
             api_hdrs['X-CSRFToken'] = sessionDict.get(self.key)['csrftoken']
