@@ -422,11 +422,12 @@ class AviAnsibleConverter(object):
             yaml.safe_dump([ad], outf, default_flow_style=False, indent=2)
 
         # Added support to generate ansible delete object playbook
-        ad['tasks'][0].pop('register')
-        ad['tasks'][-1].update({'register': 'results'})
-        for k, v in ad['tasks'][0].iteritems():
-                if isinstance(v, dict):
-                    v['api_context'] = "{{results.api_context}}"
+        if len(ad['tasks']):
+            ad['tasks'][0].pop('register')
+            ad['tasks'][-1].update({'register': 'results'})
+            for k, v in ad['tasks'][0].iteritems():
+                    if isinstance(v, dict):
+                        v['api_context'] = "{{results.api_context}}"
         tasks = [task for task in reversed(ad['tasks'])]
         for task in tasks:
             for k, v in task.iteritems():
