@@ -177,8 +177,8 @@ class AviAnsibleConverter(object):
                         if task.get('vsvip_ref', []):
                             task.get('vsvip_ref', [])
             if not self.register_flag:
-                task.update({'api_token': "{{results.api_context | default(omit)}}",
-                             "session_id": "{{results.session_id | default(omit)}}"})
+                task.update({'api_context': "{{results.api_context | "
+                                            "default(omit)}}"})
             task.update({API_VERSION: self.api_version})
             # Check object present in list for tag.
             name = '%s-%s' % (obj['name'], obj_type)
@@ -426,8 +426,7 @@ class AviAnsibleConverter(object):
         ad['tasks'][-1].update({'register': 'results'})
         for k, v in ad['tasks'][0].iteritems():
                 if isinstance(v, dict):
-                    v['api_token'] = "{{results.api_context}}"
-                    v['session_id'] = "{{results.session_id}}"
+                    v['api_context'] = "{{results.api_context}}"
         tasks = [task for task in reversed(ad['tasks'])]
         for task in tasks:
             for k, v in task.iteritems():

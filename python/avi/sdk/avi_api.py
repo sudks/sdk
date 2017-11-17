@@ -31,7 +31,7 @@ def avi_timedelta(td):
 
 
 def avi_sdk_syslog_logger(logger_name='avi.sdk'):
-    # The following sets up syslog module to log underlying avi SDK messages
+    # The following sets up syslog module.params to log underlying avi SDK messages
     # based on the environment variables:
     #   AVI_LOG_HANDLER: names the logging handler to use. Only syslog is
     #     supported.
@@ -40,7 +40,7 @@ def avi_sdk_syslog_logger(logger_name='avi.sdk'):
     #   Default is /dev/log
     from logging.handlers import SysLogHandler
     lf = '[%(asctime)s] %(levelname)s [' \
-                        '%(module)s.%(funcName)s:%(lineno)d] %(message)s'
+                        '%(module.params)s.%(funcName)s:%(lineno)d] %(message)s'
     log = logging.getLogger(logger_name)
     log_level = os.environ.get('AVI_LOG_LEVEL', 'DEBUG')
     if log_level:
@@ -135,6 +135,7 @@ class AviCredentials(object):
     port = None
     timeout = 300
     session_id = None
+    csrftoken = None
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
@@ -142,11 +143,11 @@ class AviCredentials(object):
 
     def update_from_ansible_module(self, module):
         """
-        :param module: ansible module
+        :param module.params: ansible module.params
         :return:
         """
         if module.params.get('avi_credentials'):
-            for k, v in list(module.params['avi_credentials'].items()):
+            for k, v in list(module['avi_credentials'].items()):
                 if hasattr(self, k):
                     setattr(self, k, v)
         if module.params['controller']:
@@ -162,8 +163,10 @@ class AviCredentials(object):
             self.tenant = module.params['tenant']
         if module.params['tenant_uuid']:
             self.tenant_uuid = module.params['tenant_uuid']
-        if module.params['session_id']:
+        if module.params.get('session_id'):
             self.session_id = module.params['session_id']
+        if module.params.get('csrftoken'):
+            self.csrftoken = module.params['csrftoken']
 
     def __str__(self):
         return 'controller %s user %s api %s tenant %s' % (
@@ -189,7 +192,7 @@ class ApiSession(Session):
                  token=None, tenant=None, tenant_uuid=None, verify=False,
                  port=None, timeout=60, api_version=None,
                  retry_conxn_errors=True, data_log=False,
-                 avi_credentials=None, session_id=None):
+                 avi_credentials=None, session_id=None, csrftoken=None):
         """
          ApiSession takes ownership of avi_credentials and may update the
          information inside it.
@@ -214,7 +217,8 @@ class ApiSession(Session):
             self.avi_credentials = AviCredentials(
                 controller=controller_ip, username=username, password=password,
                 api_version=api_version, tenant=tenant, tenant_uuid=tenant_uuid,
-                token=token, port=port, timeout=timeout, session_id=session_id)
+                token=token, port=port, timeout=timeout,
+                session_id=session_id, csrftoken=csrftoken)
         else:
             self.avi_credentials = avi_credentials
         self.headers = {}
@@ -248,9 +252,9 @@ class ApiSession(Session):
                                  self.avi_credentials.username, k_port)
         # Added api token and session id to sessionDict for handle single
         # session
-        if self.avi_credentials.token:
+        if self.avi_credentials.csrftoken:
             sessionDict[self.key] = {'api': self,
-                                     "csrftoken": self.avi_credentials.token,
+                                     "csrftoken": self.avi_credentials.csrftoken,
                                      "session_id":self.avi_credentials.session_id,
                                      "last_used": datetime.utcnow()}
         else:
@@ -331,12 +335,18 @@ class ApiSession(Session):
     def session_id(self):
         return sessionDict[self.key]['session_id']
 
+    def get_context(self):
+        return {
+            'session_id':sessionDict[self.key]['session_id'],
+            'csrftoken': sessionDict[self.key]['csrftoken']
+        }
+
     @staticmethod
     def get_session(
             controller_ip=None, username=None, password=None, token=None, tenant=None,
             tenant_uuid=None, verify=False, port=None, timeout=60,
             retry_conxn_errors=True, api_version=None, data_log=False,
-            avi_credentials=None, session_id=None):
+            avi_credentials=None, session_id=None, csrftoken=None):
         """
         returns the session object for same user and tenant
         calls init if session dose not exist and adds it to session cache
@@ -356,7 +366,8 @@ class ApiSession(Session):
             avi_credentials = AviCredentials(
                 controller=controller_ip, username=username, password=password,
                 api_version=api_version, tenant=tenant, tenant_uuid=tenant_uuid,
-                token=token, port=port, timeout=timeout, session_id=session_id)
+                token=token, port=port, timeout=timeout,
+                session_id=session_id, csrftoken=csrftoken)
 
         k_port = avi_credentials.port if avi_credentials.port else 443
         if avi_credentials.controller.startswith('http'):
