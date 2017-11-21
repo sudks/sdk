@@ -3,6 +3,7 @@ import sys
 import copy
 import json
 import logging
+import time
 from datetime import datetime, timedelta
 from requests import ConnectionError
 from requests import Response
@@ -533,6 +534,8 @@ class ApiSession(Session):
                     # ignoring exception in cleanup path
                     pass
                 logger.warning('Connection failed, retrying.')
+                # Adding sleep before retrying
+                time.sleep(5)
             else:
                 logger.info('received error %d %s so resetting connection',
                             resp.status_code, resp.text)
